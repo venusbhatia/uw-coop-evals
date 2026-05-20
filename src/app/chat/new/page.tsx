@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { getEvaluatorEmail } from "@/lib/evaluatorSession";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
@@ -40,8 +41,22 @@ function SimpleEvaluation() {
   const searchParams = useSearchParams();
 
   const studentId = searchParams.get("studentId");
-  const evaluatorName = searchParams.get("evaluator");
+  const evaluatorFromUrl = searchParams.get("evaluator");
   const evalType = searchParams.get("type") || "midterm";
+  const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    const email = getEvaluatorEmail();
+    if (!email) {
+      router.replace("/onboarding");
+      return;
+    }
+    setEvaluatorEmail(email);
+    setSessionReady(true);
+  }, [router]);
+
+  const evaluatorName = evaluatorEmail ?? evaluatorFromUrl ?? "";
 
   const studentData = useQuery(
     api.students.get,
@@ -254,6 +269,14 @@ function SimpleEvaluation() {
       ? !loading && !submitting
       : currentAnswer.trim().length >= MIN_ANSWER_LENGTH && !loading && !submitting;
 
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8">
+        <p className="text-[14px] text-[var(--muted)]">Loading…</p>
+      </div>
+    );
+  }
+
   if (!studentId || !evaluatorName) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
@@ -295,7 +318,7 @@ function SimpleEvaluation() {
           <div>
             <h1 className="text-[17px] font-semibold">{student.name}</h1>
             <p className="text-[13px] text-[var(--muted)]">
-              {evaluatorName} · {evalType}
+              {evaluatorEmail ?? evaluatorName} · {evalType}
             </p>
           </div>
         </div>

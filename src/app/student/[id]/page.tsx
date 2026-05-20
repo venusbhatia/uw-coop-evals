@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { getEvaluatorEmail } from "@/lib/evaluatorSession";
 import { 
   ArrowLeft, FileText, Download, ShieldAlert, Sparkles, 
   Check, Lock, Edit3, UserCheck, CheckSquare, Square, FileJson
@@ -38,8 +39,13 @@ const COMPETENCY_LABELS: { [key: string]: { label: string; cat: string } } = {
   showSensitivity: { label: "Show sensitivity to needs and differences of others", cat: "Build Relationships" }
 };
 
+function evaluatorLabel(email: string): string {
+  return email.split("@")[0] || email;
+}
+
 export default function StudentDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
   const studentData = useQuery(api.students.get, { studentId: id as any });
   const submitReconciliation = useMutation(api.evaluations.submitReconciliation);
@@ -49,11 +55,37 @@ export default function StudentDetailPage() {
   const [reconciledDraft, setReconciledDraft] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [signingOff, setSigningOff] = useState(false);
-  const [currentEvaluatorName, setCurrentEvaluatorName] = useState("Sarah Connor (Tech Lead)");
+  const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const email = getEvaluatorEmail();
+    if (!email) {
+      router.replace("/onboarding");
+      return;
+    }
+    setEvaluatorEmail(email);
+  }, [router]);
 
   const student = studentData?.student;
   const drafts = studentData?.drafts?.filter(d => d.type === evalType) || [];
   const reconciled = studentData?.reconciled?.find(r => r.type === evalType);
+
+  const myDraft = evaluatorEmail
+    ? drafts.find((d) => d.evaluatorName === evaluatorEmail)
+    : undefined;
+  const otherDrafts = evaluatorEmail
+    ? drafts.filter((d) => d.evaluatorName !== evaluatorEmail)
+    : drafts;
+
+  const draftA = drafts[0];
+  const draftB = drafts[1];
+  const labelA = draftA ? evaluatorLabel(draftA.evaluatorName) : "—";
+  const labelB = draftB ? evaluatorLabel(draftB.evaluatorName) : "—";
+
+  const evalChatHref =
+    student && evaluatorEmail
+      ? `/chat/new?studentId=${student._id}&evaluator=${encodeURIComponent(evaluatorEmail)}&type=${evalType}`
+      : "#";
 
   const isCompleted = evalType === "midterm" 
     ? student?.midtermStatus === "completed" 
@@ -164,7 +196,7 @@ export default function StudentDetailPage() {
       await signOffEvaluation({
         studentId: student._id,
         type: evalType,
-        evaluatorName: currentEvaluatorName
+        evaluatorName: evaluatorEmail ?? ""
       });
       alert("Evaluation signed off and locked!");
     } catch (e: any) {
@@ -253,6 +285,11 @@ export default function StudentDetailPage() {
             <p className="text-[13px] text-[var(--muted)]">
               {student.studentId} · {student.jobTitle}
             </p>
+            {evaluatorEmail && (
+              <p className="text-[12px] text-[var(--muted)] mt-0.5">
+                Evaluating as {evaluatorEmail}
+              </p>
+            )}
           </div>
         </div>
 
@@ -355,27 +392,28 @@ export default function StudentDetailPage() {
             )}
           </div>
 
-          {/* Evaluator Draft Cards */}
+          {/* Your evaluation */}
           <div className="panel p-6">
-            <h3 className="text-[12px] text-[var(--muted)] uppercase tracking-wide mb-4">Evaluators</h3>
-            
-            <div className="space-y-4">
-              {/* Evaluator 1 (Sarah) */}
+            <h3 className="text-[12px] text-[var(--muted)] uppercase tracking-wide mb-4">
+              Your evaluation
+            </h3>
+            {evaluatorEmail ? (
               <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-300">Sarah Connor</span>
-                  <span className="text-[10px] text-slate-500">Tech Lead</span>
+                <div className="mb-2">
+                  <span className="text-[13px] font-medium">{evaluatorEmail}</span>
                 </div>
-                {drafts.some(d => d.evaluatorName.includes("Sarah")) ? (
+                {myDraft ? (
                   <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5" />
                     Draft complete
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <span className="text-xs text-slate-500">5 quick questions · ~5 min</span>
-                    <Link 
-                      href={`/chat/new?studentId=${student._id}&evaluator=Sarah%20Connor%20(Tech%20Lead)&type=${evalType}`}
+                    <span className="text-xs text-[var(--muted)]">
+                      5 quick questions · ~5 min
+                    </span>
+                    <Link
+                      href={evalChatHref}
                       className="w-full text-center py-2 rounded-full btn-primary text-[13px] font-medium"
                     >
                       Start evaluation
@@ -383,46 +421,34 @@ export default function StudentDetailPage() {
                   </div>
                 )}
               </div>
+            ) : (
+              <p className="text-[13px] text-[var(--muted)]">Loading…</p>
+            )}
 
-              {/* Evaluator 2 (Marcus) */}
-              <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-300">Marcus Wright</span>
-                  <span className="text-[10px] text-slate-500">Product Manager</span>
-                </div>
-                {drafts.some(d => d.evaluatorName.includes("Marcus")) ? (
-                  <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5" />
-                    Draft complete
+            {otherDrafts.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-[11px] text-[var(--muted)] uppercase tracking-wide">
+                  Other evaluators
+                </p>
+                {otherDrafts.map((d) => (
+                  <div
+                    key={d._id}
+                    className="text-[12px] text-[var(--muted)] flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    {d.evaluatorName}
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs text-slate-500">5 quick questions · ~5 min</span>
-                    <Link 
-                      href={`/chat/new?studentId=${student._id}&evaluator=Marcus%20Wright%20(Product%20Manager)&type=${evalType}`}
-                      className="w-full text-center py-2 rounded-full btn-primary text-[13px] font-medium"
-                    >
-                      Start evaluation
-                    </Link>
-                  </div>
-                )}
+                ))}
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Sign-off Identity Simulator */}
-          {!isCompleted && reconciledDraft && (
+          {!isCompleted && reconciledDraft && evaluatorEmail && (
             <div className="panel p-6">
-              <h3 className="text-[12px] text-[var(--muted)] uppercase tracking-wide mb-3">Sign-off</h3>
-              <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1.5">Reviewer Name</label>
-              <select
-                value={currentEvaluatorName}
-                onChange={(e) => setCurrentEvaluatorName(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none"
-              >
-                <option value="Sarah Connor (Tech Lead)">Sarah Connor (Tech Lead)</option>
-                <option value="Marcus Wright (Product Manager)">Marcus Wright (Product Manager)</option>
-              </select>
+              <h3 className="text-[12px] text-[var(--muted)] uppercase tracking-wide mb-3">
+                Sign-off
+              </h3>
+              <p className="text-[13px] text-[var(--muted)]">{evaluatorEmail}</p>
             </div>
           )}
 
@@ -477,22 +503,22 @@ export default function StudentDetailPage() {
                     {/* Header Row */}
                     <div className="grid grid-cols-12 bg-slate-900/40 py-2 px-4 text-[10px] text-slate-400 font-bold uppercase">
                       <div className="col-span-6">Competency</div>
-                      <div className="col-span-2 text-center">Sarah</div>
-                      <div className="col-span-2 text-center">Marcus</div>
+                      <div className="col-span-2 text-center">{labelA}</div>
+                      <div className="col-span-2 text-center">{labelB}</div>
                       <div className="col-span-2 text-center">Consensus</div>
                     </div>
 
                     {/* Competency Rows */}
                     {Object.keys(COMPETENCY_LABELS).map((key) => {
                       const labelInfo = COMPETENCY_LABELS[key];
-                      const valSarah = (drafts.find(d => d.evaluatorName.includes("Sarah"))?.ratings as any)?.[key] ?? "-";
-                      const valMarcus = (drafts.find(d => d.evaluatorName.includes("Marcus"))?.ratings as any)?.[key] ?? "-";
+                      const valA = (draftA?.ratings as Record<string, number>)?.[key] ?? "-";
+                      const valB = (draftB?.ratings as Record<string, number>)?.[key] ?? "-";
                       const valConsensus = (reconciledDraft.ratings as any)[key] ?? 0;
 
-                      // Highlight conflict if delta >= 2
-                      const isConflict = typeof valSarah === "number" && 
-                                         typeof valMarcus === "number" && 
-                                         Math.abs(valSarah - valMarcus) >= 2;
+                      const isConflict =
+                        typeof valA === "number" &&
+                        typeof valB === "number" &&
+                        Math.abs(valA - valB) >= 2;
 
                       return (
                         <div 
@@ -507,11 +533,11 @@ export default function StudentDetailPage() {
                           </div>
                           
                           <div className="col-span-2 text-center text-slate-400 font-medium">
-                            {valSarah === 0 ? "N/O" : valSarah}
+                            {valA === 0 ? "N/O" : valA}
                           </div>
                           
                           <div className="col-span-2 text-center text-slate-400 font-medium">
-                            {valMarcus === 0 ? "N/O" : valMarcus}
+                            {valB === 0 ? "N/O" : valB}
                           </div>
                           
                           <div className="col-span-2 flex justify-center">

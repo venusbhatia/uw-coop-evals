@@ -1,28 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
+import {
+  clearEvaluatorEmail,
+  getEvaluatorEmail,
+} from "@/lib/evaluatorSession";
 
 export default function Dashboard() {
+  const router = useRouter();
   const students = useQuery(api.students.list);
   const seedDemo = useMutation(api.students.seedDemo);
   const addStudent = useMutation(api.students.add);
 
+  const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [termFilter, setTermFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [seeding, setSeeding] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newStudent, setNewStudent] = useState({
-    name: "",
-    studentId: "",
-    jobTitle: "",
-    term: "Spring",
-    year: "2026",
-  });
+  const [newStudent, setNewStudent] = useState({ name: "", studentId: "" });
+
+  useEffect(() => {
+    const email = getEvaluatorEmail();
+    if (!email) {
+      router.replace("/onboarding");
+      return;
+    }
+    setEvaluatorEmail(email);
+    setReady(true);
+  }, [router]);
+
+  const handleChangeEvaluator = () => {
+    clearEvaluatorEmail();
+    router.replace("/onboarding");
+  };
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -37,17 +54,14 @@ export default function Dashboard() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudent.name || !newStudent.studentId || !newStudent.jobTitle) return;
+    if (!newStudent.name.trim() || !newStudent.studentId.trim()) return;
     try {
-      await addStudent(newStudent);
-      setShowAddModal(false);
-      setNewStudent({
-        name: "",
-        studentId: "",
-        jobTitle: "",
-        term: "Spring",
-        year: "2026",
+      await addStudent({
+        name: newStudent.name.trim(),
+        studentId: newStudent.studentId.trim(),
       });
+      setShowAddModal(false);
+      setNewStudent({ name: "", studentId: "" });
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Failed to add student");
     }
@@ -77,16 +91,36 @@ export default function Dashboard() {
       return matchesSearch && matchesTerm && matchesStatus;
     }) ?? [];
 
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-[14px] text-[var(--muted)]">Loading…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-[var(--border)] px-6 py-5 flex items-center justify-between max-w-5xl mx-auto w-full">
+      <header className="border-b border-[var(--border)] px-6 py-5 flex items-center justify-between max-w-5xl mx-auto w-full gap-4">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Employee Evals</h1>
           <p className="text-[13px] text-[var(--muted)] mt-0.5">
             Performance evaluations
           </p>
+          {evaluatorEmail && (
+            <p className="text-[12px] text-[var(--muted)] mt-1">
+              Signed in as {evaluatorEmail}
+              <button
+                type="button"
+                onClick={handleChangeEvaluator}
+                className="ml-2 underline hover:text-[var(--foreground)]"
+              >
+                Change
+              </button>
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => void handleSeed()}
@@ -221,58 +255,15 @@ export default function Dashboard() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[12px] text-[var(--muted)] uppercase tracking-wide">
-                    ID
-                  </label>
-                  <input
-                    type="text"
-                    value={newStudent.studentId}
-                    onChange={(e) =>
-                      setNewStudent({ ...newStudent, studentId: e.target.value })
-                    }
-                    className="input-field w-full mt-1.5 px-3 py-2 text-[14px]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-[12px] text-[var(--muted)] uppercase tracking-wide">
-                    Term
-                  </label>
-                  <div className="flex gap-2 mt-1.5">
-                    <select
-                      value={newStudent.term}
-                      onChange={(e) =>
-                        setNewStudent({ ...newStudent, term: e.target.value })
-                      }
-                      className="input-field flex-1 px-2 py-2 text-[13px]"
-                    >
-                      <option value="Winter">Winter</option>
-                      <option value="Spring">Spring</option>
-                      <option value="Fall">Fall</option>
-                    </select>
-                    <input
-                      type="text"
-                      value={newStudent.year}
-                      onChange={(e) =>
-                        setNewStudent({ ...newStudent, year: e.target.value })
-                      }
-                      className="input-field w-16 px-2 py-2 text-[14px]"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
               <div>
                 <label className="text-[12px] text-[var(--muted)] uppercase tracking-wide">
-                  Job title
+                  Student ID
                 </label>
                 <input
                   type="text"
-                  value={newStudent.jobTitle}
+                  value={newStudent.studentId}
                   onChange={(e) =>
-                    setNewStudent({ ...newStudent, jobTitle: e.target.value })
+                    setNewStudent({ ...newStudent, studentId: e.target.value })
                   }
                   className="input-field w-full mt-1.5 px-3 py-2 text-[14px]"
                   required

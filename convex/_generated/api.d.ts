@@ -9,6 +9,7 @@
  */
 
 import type * as evaluations from "../evaluations.js";
+import type * as seedData from "../seedData.js";
 import type * as students from "../students.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   evaluations: typeof evaluations;
+  seedData: typeof seedData;
   students: typeof students;
 }>;
 

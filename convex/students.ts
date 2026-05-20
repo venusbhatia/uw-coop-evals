@@ -1,5 +1,11 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import {
+  DEMO_EVALUATOR_1,
+  DEMO_EVALUATOR_2,
+  DEMO_STUDENTS,
+} from "./seedData";
 
 // List all students
 export const list = query({
@@ -41,17 +47,18 @@ export const add = mutation({
   args: {
     name: v.string(),
     studentId: v.string(),
-    jobTitle: v.string(),
-    term: v.string(),
-    year: v.string(),
+    jobTitle: v.optional(v.string()),
+    term: v.optional(v.string()),
+    year: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const year = args.year ?? String(new Date().getFullYear());
     return await ctx.db.insert("students", {
       name: args.name,
       studentId: args.studentId,
-      jobTitle: args.jobTitle,
-      term: args.term,
-      year: args.year,
+      jobTitle: args.jobTitle ?? "Co-op Student",
+      term: args.term ?? "Spring",
+      year,
       midtermStatus: "not_started",
       finalStatus: "not_started",
     });
@@ -76,46 +83,25 @@ export const seedDemo = mutation({
       await ctx.db.delete(r._id);
     }
 
-    // 2. Insert fresh demo students
-    const idJane = await ctx.db.insert("students", {
-      name: "Jane Doe",
-      studentId: "20912834",
-      jobTitle: "Software Engineering Intern",
-      term: "Spring",
-      year: "2026",
-      midtermStatus: "not_started",
-      finalStatus: "not_started",
-    });
+    // 2. Insert 20 demo students
+    const idByStudentNumber: Record<string, Id<"students">> = {};
 
-    const idJohn = await ctx.db.insert("students", {
-      name: "John Smith",
-      studentId: "20875412",
-      jobTitle: "Product Management Intern",
-      term: "Spring",
-      year: "2026",
-      midtermStatus: "drafting",
-      finalStatus: "not_started",
-    });
+    for (const s of DEMO_STUDENTS) {
+      const id = await ctx.db.insert("students", {
+        name: s.name,
+        studentId: s.studentId,
+        jobTitle: s.jobTitle,
+        term: s.term,
+        year: s.year,
+        midtermStatus: s.midtermStatus,
+        finalStatus: s.finalStatus,
+      });
+      idByStudentNumber[s.studentId] = id;
+    }
 
-    const idAlice = await ctx.db.insert("students", {
-      name: "Alice Johnson",
-      studentId: "21043928",
-      jobTitle: "Frontend Developer",
-      term: "Spring",
-      year: "2026",
-      midtermStatus: "ready_reconcile",
-      finalStatus: "not_started",
-    });
-
-    const idBob = await ctx.db.insert("students", {
-      name: "Bob Williams",
-      studentId: "20773950",
-      jobTitle: "UX Research Intern",
-      term: "Spring",
-      year: "2026",
-      midtermStatus: "completed",
-      finalStatus: "completed",
-    });
+    const idJohn = idByStudentNumber["20875412"]!;
+    const idAlice = idByStudentNumber["21043928"]!;
+    const idBob = idByStudentNumber["20773950"]!;
 
     // 3. Add evaluations for John Smith (Only Evaluator 1 done)
     const baseRatings = {
@@ -143,7 +129,7 @@ export const seedDemo = mutation({
 
     await ctx.db.insert("evaluations", {
       studentId: idJohn,
-      evaluatorName: "Sarah Connor (Tech Lead)",
+      evaluatorName: DEMO_EVALUATOR_1,
       type: "midterm",
       ratings: baseRatings,
       strengths: {
@@ -176,7 +162,7 @@ export const seedDemo = mutation({
     // Sarah's draft: High scores, very positive
     await ctx.db.insert("evaluations", {
       studentId: idAlice,
-      evaluatorName: "Sarah Connor (Tech Lead)",
+      evaluatorName: DEMO_EVALUATOR_1,
       type: "midterm",
       ratings: {
         ...baseRatings,
@@ -213,7 +199,7 @@ export const seedDemo = mutation({
     // Marcus's draft: Critical scores, notes missed deadlines
     await ctx.db.insert("evaluations", {
       studentId: idAlice,
-      evaluatorName: "Marcus Wright (Product Manager)",
+      evaluatorName: DEMO_EVALUATOR_2,
       type: "midterm",
       ratings: {
         ...baseRatings,
@@ -297,7 +283,7 @@ export const seedDemo = mutation({
         datesFrom: "2026-09-01",
         datesTo: "2026-12-24",
       },
-      signOffs: ["Sarah Connor (Tech Lead)", "Marcus Wright (Product Manager)"],
+      signOffs: [DEMO_EVALUATOR_1, DEMO_EVALUATOR_2],
       status: "completed",
       createdAt: Date.now() - 86400000 * 5, // 5 days ago
     };
