@@ -5,23 +5,16 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "convex/_generated/api";
 import {
-  build8090Email,
   DEMO_EVALUATOR_EMAIL,
-  EMAIL_DOMAIN,
   getEvaluatorEmail,
-  isValid8090Username,
-  MAX_USERNAME_LENGTH,
-  sanitize8090Username,
+  isValid8090Email,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
-
-const USERNAME_PLACEHOLDER = "username";
-const USERNAME_FIELD_CH = Math.max(USERNAME_PLACEHOLDER.length, 8);
 
 export default function OnboardingPage() {
   const router = useRouter();
   const seedDemo = useMutation(api.students.seedDemo);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loadingDemo, setLoadingDemo] = useState(false);
 
@@ -33,11 +26,12 @@ export default function OnboardingPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValid8090Username(username)) {
-      setError("Enter a username (max 25 characters, . allowed)");
+    const trimmed = email.trim();
+    if (!isValid8090Email(trimmed)) {
+      setError("Enter your 8090 work email ending with @8090.inc");
       return;
     }
-    setEvaluatorEmail(build8090Email(username));
+    setEvaluatorEmail(trimmed);
     router.replace("/");
   };
 
@@ -69,36 +63,24 @@ export default function OnboardingPage() {
         <form onSubmit={handleSubmit} className="mt-10 space-y-4">
           <div>
             <label
-              htmlFor="work-email-username"
+              htmlFor="work-email"
               className="text-[12px] text-[var(--muted)] uppercase tracking-wide"
             >
               Work email
             </label>
-            <div className="inline-flex items-center mt-1.5 max-w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] px-3 py-3 focus-within:border-[var(--foreground)] transition-colors">
-              <input
-                id="work-email-username"
-                type="text"
-                autoComplete="username"
-                inputMode="email"
-                placeholder={USERNAME_PLACEHOLDER}
-                value={username}
-                maxLength={MAX_USERNAME_LENGTH}
-                onChange={(e) => {
-                  setUsername(sanitize8090Username(e.target.value));
-                  setError("");
-                }}
-                className="p-0 text-[16px] leading-none bg-transparent border-0 outline-none text-[var(--foreground)]"
-                style={{
-                  width: `${Math.max(username.length || USERNAME_FIELD_CH, USERNAME_FIELD_CH)}ch`,
-                  minWidth: `${USERNAME_FIELD_CH}ch`,
-                  maxWidth: `${MAX_USERNAME_LENGTH}ch`,
-                }}
-                required
-              />
-              <span className="text-[16px] leading-none text-[var(--foreground)] select-none -ml-px">
-                {EMAIL_DOMAIN}
-              </span>
-            </div>
+            <input
+              id="work-email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@8090.inc"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              className="input-field w-full mt-1.5 px-4 py-3 text-[16px]"
+              required
+            />
             <p className="text-[13px] text-[var(--muted)] mt-2 leading-relaxed">
               Use your 8090 work email.
             </p>
