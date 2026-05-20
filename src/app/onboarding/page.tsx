@@ -10,8 +10,13 @@ import {
   EMAIL_DOMAIN,
   getEvaluatorEmail,
   isValid8090Username,
+  MAX_USERNAME_LENGTH,
+  sanitize8090Username,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
+
+const USERNAME_PLACEHOLDER = "username";
+const USERNAME_FIELD_CH = Math.max(USERNAME_PLACEHOLDER.length, 8);
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -29,7 +34,7 @@ export default function OnboardingPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid8090Username(username)) {
-      setError("Enter your username (letters, numbers, . _ + -)");
+      setError("Enter a username (max 25 characters, . allowed)");
       return;
     }
     setEvaluatorEmail(build8090Email(username));
@@ -69,23 +74,28 @@ export default function OnboardingPage() {
             >
               Work email
             </label>
-            <div className="flex mt-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--background)] overflow-hidden focus-within:border-[var(--foreground)]">
+            <div className="inline-flex items-center mt-1.5 max-w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] px-3 py-3 focus-within:border-[var(--foreground)] transition-colors">
               <input
                 id="work-email-username"
                 type="text"
                 autoComplete="username"
                 inputMode="email"
-                placeholder="firstname.lastname"
+                placeholder={USERNAME_PLACEHOLDER}
                 value={username}
+                maxLength={MAX_USERNAME_LENGTH}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/@/g, "");
-                  setUsername(raw);
+                  setUsername(sanitize8090Username(e.target.value));
                   setError("");
                 }}
-                className="flex-1 min-w-0 px-4 py-3 text-[16px] bg-transparent border-0 outline-none text-[var(--foreground)]"
+                className="p-0 text-[16px] leading-none bg-transparent border-0 outline-none text-[var(--foreground)]"
+                style={{
+                  width: `${Math.max(username.length || USERNAME_FIELD_CH, USERNAME_FIELD_CH)}ch`,
+                  minWidth: `${USERNAME_FIELD_CH}ch`,
+                  maxWidth: `${MAX_USERNAME_LENGTH}ch`,
+                }}
                 required
               />
-              <span className="flex items-center px-4 py-3 text-[16px] text-[var(--muted)] border-l border-[var(--border)] shrink-0 select-none">
+              <span className="text-[16px] leading-none text-[var(--foreground)] select-none -ml-px">
                 {EMAIL_DOMAIN}
               </span>
             </div>
