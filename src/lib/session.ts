@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
+import { getSigningKey, getVerificationJwks } from "@/lib/jwtKeys";
 import {
   CONVEX_TOKEN_MAX_AGE_SECONDS,
   SESSION_APPLICATION_ID,
@@ -13,17 +14,6 @@ export type SessionPayload = {
   email: string;
 };
 
-function getSecret(): Uint8Array {
-  let secret = process.env.SESSION_SECRET?.trim();
-  if ((!secret || secret.length < 32) && process.env.NODE_ENV === "development") {
-    secret = "dev-only-session-secret-min-32-chars!!";
-  }
-  if (!secret || secret.length < 32) {
-    throw new Error("SESSION_SECRET must be set (min 32 characters).");
-  }
-  return new TextEncoder().encode(secret);
-}
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -34,14 +24,15 @@ export async function createSessionToken(email: string): Promise<string> {
     throw new Error("Invalid evaluator email.");
   }
 
+  const key = await getSigningKey();
   return new SignJWT({ email: normalized })
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setSubject(normalized)
     .setIssuedAt()
     .setIssuer(sessionIssuer())
     .setAudience(SESSION_APPLICATION_ID)
     .setExpirationTime(`${SESSION_MAX_AGE_SECONDS}s`)
-    .sign(getSecret());
+    .sign(key);
 }
 
 export async function createConvexToken(email: string): Promise<string> {
@@ -50,21 +41,23 @@ export async function createConvexToken(email: string): Promise<string> {
     throw new Error("Invalid evaluator email.");
   }
 
+  const key = await getSigningKey();
   return new SignJWT({ email: normalized })
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: "employee-evals-1" })
     .setSubject(normalized)
     .setIssuedAt()
     .setIssuer(sessionIssuer())
     .setAudience(SESSION_APPLICATION_ID)
     .setExpirationTime(`${CONVEX_TOKEN_MAX_AGE_SECONDS}s`)
-    .sign(getSecret());
+    .sign(key);
 }
 
 export async function verifySessionToken(
   token: string,
 ): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret(), {
+    const jwks = await getVerificationJwks();
+    const { payload } = await jwtVerify(token, jwks, {
       issuer: sessionIssuer(),
       audience: SESSION_APPLICATION_ID,
     });
