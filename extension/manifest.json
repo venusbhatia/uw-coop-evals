@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "WaterlooWorks Co-op Evaluation Auto-Filler",
+  "name": "Employee Evals — WaterlooWorks Filler",
   "version": "1.0",
   "description": "Auto-fills student performance evaluation forms on WaterlooWorks using data fetched from the local Evals Hub.",
   "permissions": [
@@ -9,7 +9,9 @@
   ],
   "host_permissions": [
     "https://*.waterlooworks.uwaterloo.ca/*",
-    "http://localhost:8090/*"
+    "http://localhost:8090/*",
+    "https://employee-evals.vercel.app/*",
+    "https://*.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html"

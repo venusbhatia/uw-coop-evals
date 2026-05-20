@@ -18,8 +18,30 @@ document.addEventListener("DOMContentLoaded", () => {
     statusBox.textContent = "Querying local database...";
     fetchBtn.disabled = true;
 
+    const hubs = [
+      "https://employee-evals.vercel.app",
+      "http://localhost:8090",
+    ];
+
     try {
-      const response = await fetch(`http://localhost:8090/api/evaluations/export?name=${encodeURIComponent(name)}`);
+      let response = null;
+      for (const base of hubs) {
+        try {
+          const attempt = await fetch(
+            `${base}/api/evaluations/export?name=${encodeURIComponent(name)}`,
+          );
+          if (attempt.ok) {
+            response = attempt;
+            break;
+          }
+          if (attempt.status !== 404) response = attempt;
+        } catch {
+          /* try next hub */
+        }
+      }
+      if (!response) {
+        throw new Error("Could not reach Employee Evals (production or localhost).");
+      }
       
       if (!response.ok) {
         if (response.status === 404) {
