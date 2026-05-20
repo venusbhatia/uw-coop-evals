@@ -1,6 +1,22 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
-const DEMO_EMAIL = "demo@8090.inc";
+export function resolveEvaluatorEmail(identity: {
+  email?: string | null;
+  subject?: string | null;
+  tokenIdentifier?: string | null;
+}): string {
+  let raw =
+    (typeof identity.email === "string" && identity.email) ||
+    (typeof identity.subject === "string" && identity.subject) ||
+    identity.tokenIdentifier ||
+    "";
+
+  if (raw.includes("|")) {
+    raw = raw.split("|").pop() ?? raw;
+  }
+
+  return raw.trim().toLowerCase();
+}
 
 export async function requireAuth(ctx: QueryCtx | MutationCtx): Promise<{ email: string }> {
   const identity = await ctx.auth.getUserIdentity();
@@ -8,13 +24,7 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx): Promise<{ email:
     throw new Error("Unauthenticated");
   }
 
-  const raw =
-    (typeof identity.email === "string" && identity.email) ||
-    (typeof identity.subject === "string" && identity.subject) ||
-    identity.tokenIdentifier ||
-    "";
-
-  const email = raw.trim().toLowerCase();
+  const email = resolveEvaluatorEmail(identity);
   if (!email.endsWith("@8090.inc")) {
     throw new Error("Forbidden");
   }
@@ -22,16 +32,7 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx): Promise<{ email:
   return { email };
 }
 
-export async function requireSeedDemoAuth(
-  ctx: MutationCtx,
-): Promise<{ email: string }> {
-  const { email } = await requireAuth(ctx);
-  const allowAll = process.env.ALLOW_SEED_DEMO === "true";
-  const isDemo = email === DEMO_EMAIL;
-
-  if (!allowAll && !isDemo) {
-    throw new Error("Demo seed is only available for the demo account.");
-  }
-
-  return { email };
+/** Any signed-in @8090.inc user may reload demo data. */
+export async function requireSeedDemoAuth(ctx: MutationCtx): Promise<{ email: string }> {
+  return requireAuth(ctx);
 }

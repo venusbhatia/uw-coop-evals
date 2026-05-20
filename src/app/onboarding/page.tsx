@@ -10,7 +10,11 @@ import {
   isValid8090Email,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
-import { createServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
+import {
+  createServerSession,
+  fetchServerSessionEmail,
+  waitForConvexAuth,
+} from "@/lib/evaluatorApi";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -54,6 +58,7 @@ export default function OnboardingPage() {
     try {
       await createServerSession(DEMO_EVALUATOR_EMAIL);
       setEvaluatorEmail(DEMO_EVALUATOR_EMAIL);
+      await waitForConvexAuth();
       await seedDemo();
       router.replace("/");
     } catch (e: unknown) {

@@ -10,7 +10,11 @@ import {
   clearEvaluatorEmail,
   getEvaluatorEmail,
 } from "@/lib/evaluatorSession";
-import { destroyServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
+import {
+  destroyServerSession,
+  fetchServerSessionEmail,
+  waitForConvexAuth,
+} from "@/lib/evaluatorApi";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -54,6 +58,7 @@ export default function Dashboard() {
     setSeeding(true);
     setSeedError("");
     try {
+      await waitForConvexAuth();
       await seedDemo();
     } catch (e: unknown) {
       const msg =
