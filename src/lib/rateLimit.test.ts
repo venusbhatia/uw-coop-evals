@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { getClientIp } from "@/lib/rateLimit";
+import { getClientIp, routeToRateLimitGroup } from "@/lib/rateLimit";
+
+describe("routeToRateLimitGroup", () => {
+  it("does not rate limit transcribe", () => {
+    expect(routeToRateLimitGroup("/api/transcribe")).toBeNull();
+  });
+
+  it("rate limits chat", () => {
+    expect(routeToRateLimitGroup("/api/evaluation/chat")).toBe("chat");
+  });
+});
 
 describe("getClientIp", () => {
   it("reads first forwarded IP", () => {
