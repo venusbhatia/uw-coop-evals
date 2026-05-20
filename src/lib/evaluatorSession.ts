@@ -1,5 +1,8 @@
 const STORAGE_KEY = "employee-evals-evaluator-email";
 
+/** Pre-filled demo evaluator for “See demo” — must satisfy @8090.inc rule */
+export const DEMO_EVALUATOR_EMAIL = "demo@8090.inc";
+
 export function getEvaluatorEmail(): string | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(STORAGE_KEY);

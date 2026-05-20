@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [termFilter, setTermFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: "", studentId: "" });
 
@@ -43,10 +44,15 @@ export default function Dashboard() {
 
   const handleSeed = async () => {
     setSeeding(true);
+    setSeedError("");
     try {
       await seedDemo();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Seeding failed");
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "Seeding failed — check that Convex is connected.";
+      setSeedError(msg);
     } finally {
       setSeeding(false);
     }
@@ -127,7 +133,7 @@ export default function Dashboard() {
             disabled={seeding}
             className="btn-secondary px-4 py-2 text-[13px] disabled:opacity-40"
           >
-            {seeding ? "Seeding…" : "Seed demo"}
+            {seeding ? "Seeding…" : "Reload demo"}
           </button>
           <button
             type="button"
@@ -141,6 +147,9 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-8">
+        {seedError && (
+          <p className="mb-4 text-[14px] text-red-600 dark:text-red-400">{seedError}</p>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-[var(--muted)] absolute left-3 top-1/2 -translate-y-1/2" />

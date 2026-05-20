@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
+import { api } from "convex/_generated/api";
 import {
+  DEMO_EVALUATOR_EMAIL,
   getEvaluatorEmail,
   isValid8090Email,
   setEvaluatorEmail,
@@ -10,8 +13,10 @@ import {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const seedDemo = useMutation(api.students.seedDemo);
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [loadingDemo, setLoadingDemo] = useState(false);
 
   useEffect(() => {
     if (getEvaluatorEmail()) {
@@ -28,6 +33,23 @@ export default function OnboardingPage() {
     }
     setEvaluatorEmail(trimmed);
     router.replace("/");
+  };
+
+  const handleSeeDemo = async () => {
+    setError("");
+    setLoadingDemo(true);
+    try {
+      setEvaluatorEmail(DEMO_EVALUATOR_EMAIL);
+      await seedDemo();
+      router.replace("/");
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "Could not load demo data. Is the app connected to Convex?";
+      setError(msg);
+      setLoadingDemo(false);
+    }
   };
 
   return (
@@ -69,10 +91,28 @@ export default function OnboardingPage() {
             <p className="text-[14px] text-red-600 dark:text-red-400">{error}</p>
           )}
 
-          <button type="submit" className="btn-primary w-full py-3 text-[15px]">
+          <button
+            type="submit"
+            disabled={loadingDemo}
+            className="btn-primary w-full py-3 text-[15px] disabled:opacity-40"
+          >
             Continue
           </button>
         </form>
+
+        <div className="mt-6 pt-6 border-t border-[var(--border)]">
+          <button
+            type="button"
+            onClick={() => void handleSeeDemo()}
+            disabled={loadingDemo}
+            className="btn-secondary w-full py-3 text-[15px] disabled:opacity-40"
+          >
+            {loadingDemo ? "Loading demo…" : "See demo"}
+          </button>
+          <p className="text-[12px] text-[var(--muted)] mt-2 text-center leading-relaxed">
+            Loads 20 sample students — no email required.
+          </p>
+        </div>
       </div>
     </div>
   );
