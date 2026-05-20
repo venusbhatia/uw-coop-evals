@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Download, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Loader2, Mic, MicOff } from "lucide-react";
 import { downloadJsonFile } from "@/lib/waterlooFormExport";
 import type { Id } from "convex/_generated/dataModel";
 import {
@@ -13,7 +13,7 @@ import {
   type ChatMessage,
   type DraftPayload,
 } from "@/lib/evaluationConfig";
-import { useDeepgramSTT } from "@/hooks/useDeepgramSTT";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { WizardProgress } from "@/components/evaluation/WizardProgress";
 
 const MIN_ANSWER_LENGTH = 20;
@@ -59,22 +59,9 @@ function SimpleEvaluation() {
   const [completed, setCompleted] = useState(false);
   const [exportError, setExportError] = useState("");
   const [error, setError] = useState("");
-  const [voiceAvailable, setVoiceAvailable] = useState(true);
 
   const student = studentData?.student;
-
-  const handleTranscript = useCallback((fullText: string) => {
-    setCurrentAnswer(fullText);
-  }, []);
-
-  const stt = useDeepgramSTT(handleTranscript);
-
-  useEffect(() => {
-    fetch("/api/deepgram/stt-token", { method: "POST" })
-      .then((r) => r.json())
-      .then((d) => setVoiceAvailable(d.enabled === true))
-      .catch(() => setVoiceAvailable(false));
-  }, []);
+  const speech = useSpeechToText();
 
   const callChat = async (history: ChatMessage[]) => {
     let res: Response;
@@ -215,6 +202,7 @@ function SimpleEvaluation() {
         });
         setCurrentQuestion(nextQ);
         setCurrentAnswer("");
+        speech.reset();
         setStep(step + 1);
       } else {
         const result = await fetchNextQuestion(history);
@@ -241,16 +229,20 @@ function SimpleEvaluation() {
     setStep(prev);
     setCurrentQuestion(questions[prev - 1] ?? "");
     setCurrentAnswer(answers[prev - 1] ?? "");
+    speech.reset();
     setError("");
   };
 
-  const toggleMic = () => {
-    if (stt.isListening) {
-      stt.stopListening();
+  const toggleMic = async () => {
+    if (speech.isRecording) {
+      const merged = await speech.stopRecording(currentAnswer);
+      setCurrentAnswer(merged);
     } else {
-      void stt.startListening(currentAnswer);
+      await speech.startRecording();
     }
   };
+
+  const voiceBusy = speech.isRecording || speech.isTranscribing;
 
   const progressLabel =
     step === 0
@@ -372,43 +364,60 @@ function SimpleEvaluation() {
               <textarea
                 value={currentAnswer}
                 onChange={(e) => setCurrentAnswer(e.target.value)}
-                placeholder="Share your thoughts here…"
+                placeholder={
+                  speech.isRecording
+                    ? "Listening…"
+                    : speech.isTranscribing
+                      ? "Transcribing…"
+                      : "Share your thoughts here…"
+                }
                 rows={6}
-                disabled={loading}
+                disabled={loading || voiceBusy}
                 className="input-field w-full flex-1 min-h-[160px] px-4 py-4 text-[16px] leading-relaxed resize-none"
               />
               <div className="flex items-center gap-3">
-                {voiceAvailable && (
+                <button
+                  type="button"
+                  onClick={() => void toggleMic()}
+                  disabled={loading || speech.isTranscribing}
+                  className={`p-3 rounded-full border border-[var(--border)] shrink-0 ${
+                    speech.isRecording
+                      ? "bg-[var(--foreground)] text-[var(--background)]"
+                      : "hover:bg-[var(--surface)]"
+                  }`}
+                  aria-label={
+                    speech.isRecording ? "Stop recording" : "Record answer"
+                  }
+                >
+                  {speech.isTranscribing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : speech.isRecording ? (
+                    <MicOff className="w-5 h-5" />
+                  ) : (
+                    <Mic className="w-5 h-5" />
+                  )}
+                </button>
+                {speech.isRecording && (
                   <button
                     type="button"
-                    onClick={toggleMic}
-                    disabled={loading}
-                    className={`p-3 rounded-full border border-[var(--border)] shrink-0 ${
-                      stt.isListening
-                        ? "bg-[var(--foreground)] text-[var(--background)]"
-                        : "hover:bg-[var(--surface)]"
-                    }`}
-                    aria-label={stt.isListening ? "Stop recording" : "Record answer"}
+                    onClick={speech.cancelRecording}
+                    className="text-[12px] text-[var(--muted)] underline"
                   >
-                    {stt.isListening ? (
-                      <MicOff className="w-5 h-5" />
-                    ) : (
-                      <Mic className="w-5 h-5" />
-                    )}
+                    Cancel
                   </button>
                 )}
                 <p className="text-[12px] text-[var(--muted)]">
-                  {stt.isListening
-                    ? "Listening… tap mic again when done speaking"
-                    : currentAnswer.trim().length < MIN_ANSWER_LENGTH
-                      ? `At least ${MIN_ANSWER_LENGTH} characters to continue`
-                      : voiceAvailable
-                        ? "Tap mic to speak, or type above"
-                        : "Type your answer above"}
+                  {speech.isRecording
+                    ? "Listening… tap mic when done"
+                    : speech.isTranscribing
+                      ? "Transcribing…"
+                      : currentAnswer.trim().length < MIN_ANSWER_LENGTH
+                        ? `At least ${MIN_ANSWER_LENGTH} characters to continue`
+                        : "Tap mic to speak, or type above"}
                 </p>
               </div>
-              {stt.error && (
-                <p className="text-[12px] text-[var(--muted)]">{stt.error}</p>
+              {speech.error && (
+                <p className="text-[12px] text-[var(--muted)]">{speech.error}</p>
               )}
             </div>
           </section>
