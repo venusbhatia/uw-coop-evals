@@ -1,7 +1,20 @@
 const STORAGE_KEY = "employee-evals-evaluator-email";
 
-/** Pre-filled demo evaluator for “See demo” — must satisfy @8090.inc rule */
-export const DEMO_EVALUATOR_EMAIL = "demo@8090.inc";
+/** Fixed domain suffix for 8090 work email */
+export const EMAIL_DOMAIN = "@8090.inc";
+
+/** Pre-filled demo evaluator for “See demo” */
+export const DEMO_EVALUATOR_EMAIL = `demo${EMAIL_DOMAIN}`;
+
+export function build8090Email(username: string): string {
+  return `${username.trim().toLowerCase()}${EMAIL_DOMAIN}`;
+}
+
+export function isValid8090Username(username: string): boolean {
+  const part = username.trim().toLowerCase();
+  if (!part || part.includes("@")) return false;
+  return /^[a-z0-9._+-]+$/.test(part);
+}
 
 export function getEvaluatorEmail(): string | null {
   if (typeof window === "undefined") return null;
@@ -22,5 +35,5 @@ export function clearEvaluatorEmail(): void {
 export function isValid8090Email(email: string): boolean {
   const trimmed = email.trim().toLowerCase();
   if (!trimmed.includes("@")) return false;
-  return trimmed.endsWith("@8090.inc");
+  return trimmed.endsWith(EMAIL_DOMAIN);
 }
