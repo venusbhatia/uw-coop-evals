@@ -10,6 +10,7 @@ import {
   clearEvaluatorEmail,
   getEvaluatorEmail,
 } from "@/lib/evaluatorSession";
+import { destroyServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function Dashboard() {
   const seedDemo = useMutation(api.students.seedDemo);
   const addStudent = useMutation(api.students.add);
 
-  const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
+  const [evaluatorEmail, setEvaluatorEmailState] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [termFilter, setTermFilter] = useState("all");
@@ -28,16 +29,23 @@ export default function Dashboard() {
   const [newStudent, setNewStudent] = useState({ name: "", studentId: "" });
 
   useEffect(() => {
-    const email = getEvaluatorEmail();
-    if (!email) {
-      router.replace("/onboarding");
-      return;
-    }
-    setEvaluatorEmail(email);
-    setReady(true);
+    void (async () => {
+      try {
+        const serverEmail = await fetchServerSessionEmail();
+        if (!serverEmail) {
+          router.replace("/onboarding");
+          return;
+        }
+        setEvaluatorEmailState(serverEmail);
+        setReady(true);
+      } catch {
+        router.replace("/onboarding");
+      }
+    })();
   }, [router]);
 
-  const handleChangeEvaluator = () => {
+  const handleChangeEvaluator = async () => {
+    await destroyServerSession();
     clearEvaluatorEmail();
     router.replace("/onboarding");
   };

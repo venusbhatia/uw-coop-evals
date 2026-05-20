@@ -6,6 +6,7 @@ import { api } from "convex/_generated/api";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getEvaluatorEmail } from "@/lib/evaluatorSession";
+import { fetchServerSessionEmail } from "@/lib/evaluatorApi";
 import { 
   ArrowLeft, FileText, Download, ShieldAlert, Sparkles, 
   Check, Lock, Edit3, UserCheck, CheckSquare, Square, FileJson
@@ -58,12 +59,18 @@ export default function StudentDetailPage() {
   const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    const email = getEvaluatorEmail();
-    if (!email) {
-      router.replace("/onboarding");
-      return;
-    }
-    setEvaluatorEmail(email);
+    void (async () => {
+      try {
+        const serverEmail = await fetchServerSessionEmail();
+        if (!serverEmail) {
+          router.replace("/onboarding");
+          return;
+        }
+        setEvaluatorEmail(serverEmail);
+      } catch {
+        router.replace("/onboarding");
+      }
+    })();
   }, [router]);
 
   const student = studentData?.student;

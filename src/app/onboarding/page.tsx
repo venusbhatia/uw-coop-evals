@@ -10,6 +10,7 @@ import {
   isValid8090Email,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
+import { createServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -19,26 +20,39 @@ export default function OnboardingPage() {
   const [loadingDemo, setLoadingDemo] = useState(false);
 
   useEffect(() => {
-    if (getEvaluatorEmail()) {
-      router.replace("/");
-    }
+    void (async () => {
+      try {
+        const serverEmail = await fetchServerSessionEmail();
+        if (serverEmail) {
+          router.replace("/");
+        }
+      } catch {
+        /* stay on onboarding */
+      }
+    })();
   }, [router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
     if (!isValid8090Email(trimmed)) {
       setError("Enter your 8090 work email ending with @8090.inc");
       return;
     }
-    setEvaluatorEmail(trimmed);
-    router.replace("/");
+    try {
+      await createServerSession(trimmed);
+      setEvaluatorEmail(trimmed);
+      router.replace("/");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not sign in.");
+    }
   };
 
   const handleSeeDemo = async () => {
     setError("");
     setLoadingDemo(true);
     try {
+      await createServerSession(DEMO_EVALUATOR_EMAIL);
       setEvaluatorEmail(DEMO_EVALUATOR_EMAIL);
       await seedDemo();
       router.replace("/");
@@ -60,7 +74,7 @@ export default function OnboardingPage() {
           Simple performance evaluations for your team.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-10 space-y-4">
+        <form onSubmit={(e) => void handleSubmit(e)} className="mt-10 space-y-4">
           <div>
             <label
               htmlFor="work-email"

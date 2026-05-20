@@ -3,13 +3,14 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getEvaluatorEmail } from "@/lib/evaluatorSession";
+import { fetchServerSessionEmail } from "@/lib/evaluatorApi";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Download, Loader2, Mic, MicOff } from "lucide-react";
 import { downloadJsonFile } from "@/lib/waterlooFormExport";
 import type { Id } from "convex/_generated/dataModel";
-import {
+import { 
   SIMPLE_EVALUATION_QUESTION_COUNT,
   type ChatMessage,
   type DraftPayload,
@@ -39,24 +40,29 @@ function buildMessages(questions: string[], answers: string[]): ChatMessage[] {
 function SimpleEvaluation() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
+  
   const studentId = searchParams.get("studentId");
-  const evaluatorFromUrl = searchParams.get("evaluator");
   const evalType = searchParams.get("type") || "midterm";
   const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    const email = getEvaluatorEmail();
-    if (!email) {
-      router.replace("/onboarding");
-      return;
-    }
-    setEvaluatorEmail(email);
-    setSessionReady(true);
+    void (async () => {
+      try {
+        const serverEmail = await fetchServerSessionEmail();
+        if (!serverEmail) {
+          router.replace("/onboarding");
+          return;
+        }
+        setEvaluatorEmail(serverEmail);
+        setSessionReady(true);
+      } catch {
+        router.replace("/onboarding");
+      }
+    })();
   }, [router]);
 
-  const evaluatorName = evaluatorEmail ?? evaluatorFromUrl ?? "";
+  const evaluatorName = evaluatorEmail ?? "";
 
   const studentData = useQuery(
     api.students.get,
@@ -84,10 +90,10 @@ function SimpleEvaluation() {
       res = await fetch("/api/evaluation/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           messages: history,
           studentName: student?.name ?? "Student",
-          evaluatorName: evaluatorName ?? "Evaluator",
           evalType,
         }),
       });
@@ -97,7 +103,11 @@ function SimpleEvaluation() {
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error((data.error as string) ?? "Request failed.");
+      const err = data as { error?: string; code?: string };
+      if (res.status === 429 || err.code === "RATE_LIMITED") {
+        throw new Error("Too many AI requests. Wait a minute and try again.");
+      }
+      throw new Error(err.error ?? "Request failed.");
     }
     return data;
   };
@@ -109,9 +119,10 @@ function SimpleEvaluation() {
       const params = new URLSearchParams({
         studentId,
         type: evalType,
-        evaluator: evaluatorName,
       });
-      const res = await fetch(`/api/evaluations/waterloo-json?${params.toString()}`);
+      const res = await fetch(`/api/evaluations/waterloo-json?${params.toString()}`, {
+        credentials: "include",
+      });
       const data = await res.json();
       if (!res.ok) {
         throw new Error((data.error as string) ?? "Export failed.");
@@ -308,7 +319,7 @@ function SimpleEvaluation() {
     <div className="min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]">
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="max-w-xl mx-auto flex items-center gap-4">
-          <Link
+          <Link 
             href={`/student/${studentId}`}
             className="p-2 -ml-2 rounded-full hover:bg-[var(--surface)]"
             aria-label="Back"
@@ -421,7 +432,7 @@ function SimpleEvaluation() {
                   )}
                 </button>
                 {speech.isRecording && (
-                  <button
+                  <button 
                     type="button"
                     onClick={speech.cancelRecording}
                     className="text-[12px] text-[var(--muted)] underline"
@@ -438,7 +449,7 @@ function SimpleEvaluation() {
                         ? `At least ${MIN_ANSWER_LENGTH} characters to continue`
                         : "Tap mic to speak, or type above"}
                 </p>
-              </div>
+                </div>
               {speech.error && (
                 <p className="text-[12px] text-[var(--muted)]">{speech.error}</p>
               )}
@@ -478,7 +489,7 @@ function SimpleEvaluation() {
             </button>
           </div>
         </footer>
-      )}
+        )}
     </div>
   );
 }
@@ -489,7 +500,7 @@ export default function EvaluationPage() {
       fallback={
         <div className="min-h-screen flex items-center justify-center">
           <p className="text-[14px] text-[var(--muted)]">Loading…</p>
-        </div>
+      </div>
       }
     >
       <SimpleEvaluation />

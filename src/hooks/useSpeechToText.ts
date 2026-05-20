@@ -33,8 +33,12 @@ function mapTranscribeError(status: number, body: { code?: string; error?: strin
   if (code === "MISSING_AUDIO" || code === "INVALID_AUDIO_PAYLOAD") {
     return "Could not send audio. Try recording again.";
   }
+  if (code === "RATE_LIMITED") {
+    return "Too many voice requests. Wait a minute and try again.";
+  }
   if (status === 401) return "Session expired. Refresh the page.";
   if (status === 403) return "You do not have permission to transcribe.";
+  if (status === 429) return "Too many voice requests. Wait a minute and try again.";
   return msg;
 }
 
@@ -166,6 +170,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
         const res = await fetch("/api/transcribe", {
           method: "POST",
           body: formData,
+          credentials: "include",
         });
 
         const data = (await res.json()) as {

@@ -3,14 +3,20 @@ import {
   buildSimpleEvaluationPrompt,
   SIMPLE_EVALUATION_QUESTION_COUNT,
   SUBMIT_EVALUATION_TOOL,
-  type ChatMessage,
   type DraftPayload,
 } from "@/lib/evaluationConfig";
+import { validateChatMessages } from "@/lib/chatMessages";
+import { isSessionPayload, requireApiSession } from "@/lib/apiAuth";
 
 const XAI_API_URL = "https://api.x.ai/v1/chat/completions";
 const XAI_MODELS = ["grok-3", "grok-2-1212", "grok-2-latest"];
 
 export async function POST(request: Request) {
+  const sessionOrResponse = await requireApiSession(request);
+  if (!isSessionPayload(sessionOrResponse)) {
+    return sessionOrResponse;
+  }
+
   const apiKey = process.env.XAI_API_KEY;
 
   if (!apiKey?.trim()) {
@@ -26,24 +32,31 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      messages,
+      messages: rawMessages,
       studentName,
-      evaluatorName,
       evalType,
     }: {
-      messages: ChatMessage[];
+      messages: unknown;
       studentName: string;
-      evaluatorName: string;
       evalType: string;
     } = body;
 
-    if (!studentName || !evaluatorName || !evalType) {
+    if (!studentName || !evalType) {
       return NextResponse.json(
-        { error: "Missing studentName, evaluatorName, or evalType." },
+        { error: "Missing studentName or evalType." },
         { status: 400 },
       );
     }
 
+    let messages;
+    try {
+      messages = validateChatMessages(rawMessages);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Invalid messages.";
+      return NextResponse.json({ error: msg, code: "INVALID_MESSAGES" }, { status: 400 });
+    }
+
+    const evaluatorName = sessionOrResponse.email;
     const userAnswerCount = messages.filter((m) => m.role === "user").length;
 
     const systemPrompt = buildSimpleEvaluationPrompt(
@@ -95,7 +108,7 @@ export async function POST(request: Request) {
 
     if (!data) {
       return NextResponse.json(
-        { error: `xAI request failed: ${lastError}` },
+        { error: "AI service unavailable. Try again shortly." },
         { status: 502 },
       );
     }
@@ -104,7 +117,7 @@ export async function POST(request: Request) {
 
     if (!message) {
       return NextResponse.json(
-        { error: "No response from xAI." },
+        { error: "No response from AI service." },
         { status: 502 },
       );
     }
@@ -145,10 +158,9 @@ export async function POST(request: Request) {
       type: "message",
       message: { role: "assistant" as const, content },
     });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
+  } catch {
     return NextResponse.json(
-      { error: `Internal server error: ${msg}` },
+      { error: "Internal server error." },
       { status: 500 },
     );
   }

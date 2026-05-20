@@ -1,3 +1,15 @@
+async function getExtensionApiKey() {
+  return new Promise((resolve) => {
+    if (!chrome.storage?.local) {
+      resolve("");
+      return;
+    }
+    chrome.storage.local.get(["extensionApiKey"], (result) => {
+      resolve((result.extensionApiKey || "").trim());
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const studentNameInput = document.getElementById("studentName");
   const fetchBtn = document.getElementById("fetchBtn");
@@ -14,8 +26,16 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const extensionApiKey = await getExtensionApiKey();
+    if (!extensionApiKey) {
+      statusBox.className = "status error";
+      statusBox.textContent =
+        "Extension API key not set. In DevTools console run: chrome.storage.local.set({ extensionApiKey: 'YOUR_KEY' })";
+      return;
+    }
+
     statusBox.className = "status";
-    statusBox.textContent = "Querying local database...";
+    statusBox.textContent = "Querying database...";
     fetchBtn.disabled = true;
 
     const hubs = [
@@ -29,6 +49,9 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const attempt = await fetch(
             `${base}/api/evaluations/export?name=${encodeURIComponent(name)}`,
+            {
+              headers: { "X-Extension-Key": extensionApiKey },
+            },
           );
           if (attempt.ok) {
             response = attempt;

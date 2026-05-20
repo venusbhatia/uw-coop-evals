@@ -3,12 +3,21 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { buildWaterlooSpeExport } from "@/lib/waterlooFormExport";
+import {
+  convexTokenForSession,
+  isSessionPayload,
+  requireApiSession,
+} from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
+  const sessionOrResponse = await requireApiSession(request);
+  if (!isSessionPayload(sessionOrResponse)) {
+    return sessionOrResponse;
+  }
+
   const { searchParams } = new URL(request.url);
   const studentId = searchParams.get("studentId");
   const evalType = searchParams.get("type") ?? "midterm";
-  const evaluatorName = searchParams.get("evaluator");
 
   if (!studentId) {
     return NextResponse.json(
@@ -27,6 +36,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const client = new ConvexHttpClient(convexUrl);
+    const token = await convexTokenForSession(sessionOrResponse);
+    client.setAuth(token);
+
     const studentData = await client.query(api.students.get, {
       studentId: studentId as Id<"students">,
     });
@@ -38,9 +50,8 @@ export async function GET(request: NextRequest) {
     const { student, drafts, reconciled } = studentData;
     const reconciledRow = reconciled?.find((r) => r.type === evalType);
     const typeDrafts = drafts?.filter((d) => d.type === evalType) ?? [];
-    let draftRow = evaluatorName
-      ? typeDrafts.find((d) => d.evaluatorName === evaluatorName)
-      : undefined;
+    const evaluatorEmail = sessionOrResponse.email;
+    let draftRow = typeDrafts.find((d) => d.evaluatorName === evaluatorEmail);
     if (!draftRow && typeDrafts.length > 0) {
       draftRow = typeDrafts[typeDrafts.length - 1];
     }
@@ -62,9 +73,7 @@ export async function GET(request: NextRequest) {
       organization: "",
     });
 
-    const response = NextResponse.json(payload);
-    response.headers.set("Access-Control-Allow-Origin", "*");
-    return response;
+    return NextResponse.json(payload);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(

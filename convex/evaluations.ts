@@ -1,10 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAuth } from "./lib/requireAuth";
 
 // Get drafts and reconciled evaluations for a specific student and term type
 export const getByStudentAndType = query({
   args: { studentId: v.id("students"), type: v.string() },
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const drafts = await ctx.db
       .query("evaluations")
       .filter((q) =>
@@ -81,6 +83,8 @@ export const submitDraft = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    const { email: evaluatorName } = await requireAuth(ctx);
+
     // Check if evaluator already submitted a draft for this student + type
     const existing = await ctx.db
       .query("evaluations")
@@ -88,7 +92,7 @@ export const submitDraft = mutation({
         q.and(
           q.eq(q.field("studentId"), args.studentId),
           q.eq(q.field("type"), args.type),
-          q.eq(q.field("evaluatorName"), args.evaluatorName)
+          q.eq(q.field("evaluatorName"), evaluatorName)
         )
       )
       .first();
@@ -96,7 +100,7 @@ export const submitDraft = mutation({
     if (existing) {
       await ctx.db.replace(existing._id, {
         studentId: args.studentId,
-        evaluatorName: args.evaluatorName,
+        evaluatorName,
         type: args.type,
         ratings: args.ratings,
         strengths: args.strengths,
@@ -115,7 +119,7 @@ export const submitDraft = mutation({
     } else {
       await ctx.db.insert("evaluations", {
         studentId: args.studentId,
-        evaluatorName: args.evaluatorName,
+        evaluatorName,
         type: args.type,
         ratings: args.ratings,
         strengths: args.strengths,
@@ -217,6 +221,7 @@ export const submitReconciliation = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const existing = await ctx.db
       .query("reconciledEvaluations")
       .filter((q) =>
@@ -279,6 +284,7 @@ export const signOff = mutation({
     evaluatorName: v.string(),
   },
   handler: async (ctx, args) => {
+    const { email: evaluatorName } = await requireAuth(ctx);
     const reconciled = await ctx.db
       .query("reconciledEvaluations")
       .filter((q) =>
@@ -295,8 +301,8 @@ export const signOff = mutation({
 
     // Add name if not already signed off
     const signOffs = [...reconciled.signOffs];
-    if (!signOffs.includes(args.evaluatorName)) {
-      signOffs.push(args.evaluatorName);
+    if (!signOffs.includes(evaluatorName)) {
+      signOffs.push(evaluatorName);
     }
 
     // For demo purposes, we will say that if we get 1 or more sign-offs (or explicitly lock it), we mark it complete
@@ -324,6 +330,7 @@ export const signOff = mutation({
 export const getCompletedForExport = query({
   args: { name: v.string() },
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Find student by case-insensitive name match
     const student = await ctx.db
       .query("students")

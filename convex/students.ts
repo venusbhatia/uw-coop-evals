@@ -6,11 +6,13 @@ import {
   DEMO_EVALUATOR_2,
   DEMO_STUDENTS,
 } from "./seedData";
+import { requireAuth, requireSeedDemoAuth } from "./lib/requireAuth";
 
 // List all students
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await requireAuth(ctx);
     return await ctx.db.query("students").collect();
   },
 });
@@ -19,6 +21,7 @@ export const list = query({
 export const get = query({
   args: { studentId: v.id("students") },
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const student = await ctx.db.get(args.studentId);
     if (!student) {
       return null;
@@ -52,6 +55,7 @@ export const add = mutation({
     year: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const year = args.year ?? String(new Date().getFullYear());
     return await ctx.db.insert("students", {
       name: args.name,
@@ -69,6 +73,7 @@ export const add = mutation({
 export const seedDemo = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireSeedDemoAuth(ctx);
     // 1. Delete all existing records
     const allStudents = await ctx.db.query("students").collect();
     for (const s of allStudents) {

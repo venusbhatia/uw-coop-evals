@@ -9,6 +9,7 @@
  */
 
 import type * as evaluations from "../evaluations.js";
+import type * as lib_requireAuth from "../lib/requireAuth.js";
 import type * as seedData from "../seedData.js";
 import type * as students from "../students.js";
 
@@ -20,6 +21,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   evaluations: typeof evaluations;
+  "lib/requireAuth": typeof lib_requireAuth;
   seedData: typeof seedData;
   students: typeof students;
 }>;
