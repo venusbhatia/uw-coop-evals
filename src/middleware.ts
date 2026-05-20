@@ -23,6 +23,7 @@ function isPublicApi(pathname: string, method: string): boolean {
 function requiresSession(pathname: string): boolean {
   if (pathname.startsWith("/api/evaluation/")) return true;
   if (pathname === "/api/transcribe") return true;
+  if (pathname === "/api/seed-demo") return true;
   if (pathname.startsWith("/api/evaluations/") && pathname !== "/api/evaluations/export") {
     return true;
   }

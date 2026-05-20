@@ -10,16 +10,12 @@ import {
   clearEvaluatorEmail,
   getEvaluatorEmail,
 } from "@/lib/evaluatorSession";
-import {
-  destroyServerSession,
-  fetchServerSessionEmail,
-  waitForConvexAuth,
-} from "@/lib/evaluatorApi";
+import { destroyServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
+import { runSeedDemo } from "@/lib/seedDemo";
+import { ConvexAuthGate } from "@/components/ConvexAuthGate";
 
 export default function Dashboard() {
   const router = useRouter();
-  const students = useQuery(api.students.list);
-  const seedDemo = useMutation(api.students.seedDemo);
   const addStudent = useMutation(api.students.add);
 
   const [evaluatorEmail, setEvaluatorEmailState] = useState<string | null>(null);
@@ -58,8 +54,7 @@ export default function Dashboard() {
     setSeeding(true);
     setSeedError("");
     try {
-      await waitForConvexAuth();
-      await seedDemo();
+      await runSeedDemo();
     } catch (e: unknown) {
       const msg =
         e instanceof Error
@@ -86,6 +81,79 @@ export default function Dashboard() {
     }
   };
 
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-[14px] text-[var(--muted)]">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <ConvexAuthGate>
+    <DashboardContent
+      evaluatorEmail={evaluatorEmail}
+      handleChangeEvaluator={handleChangeEvaluator}
+      handleSeed={handleSeed}
+      seeding={seeding}
+      seedError={seedError}
+      showAddModal={showAddModal}
+      setShowAddModal={setShowAddModal}
+      newStudent={newStudent}
+      setNewStudent={setNewStudent}
+      handleAddStudent={handleAddStudent}
+      addStudent={addStudent}
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+      termFilter={termFilter}
+      setTermFilter={setTermFilter}
+      statusFilter={statusFilter}
+      setStatusFilter={setStatusFilter}
+    />
+    </ConvexAuthGate>
+  );
+}
+
+function DashboardContent({
+  evaluatorEmail,
+  handleChangeEvaluator,
+  handleSeed,
+  seeding,
+  seedError,
+  showAddModal,
+  setShowAddModal,
+  newStudent,
+  setNewStudent,
+  handleAddStudent,
+  addStudent,
+  searchTerm,
+  setSearchTerm,
+  termFilter,
+  setTermFilter,
+  statusFilter,
+  setStatusFilter,
+}: {
+  evaluatorEmail: string | null;
+  handleChangeEvaluator: () => void;
+  handleSeed: () => void;
+  seeding: boolean;
+  seedError: string;
+  showAddModal: boolean;
+  setShowAddModal: (v: boolean) => void;
+  newStudent: { name: string; studentId: string };
+  setNewStudent: (v: { name: string; studentId: string }) => void;
+  handleAddStudent: (e: React.FormEvent) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addStudent: any;
+  searchTerm: string;
+  setSearchTerm: (v: string) => void;
+  termFilter: string;
+  setTermFilter: (v: string) => void;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
+}) {
+  const students = useQuery(api.students.list);
+
   const filteredStudents =
     students?.filter((student) => {
       const matchesSearch =
@@ -109,14 +177,6 @@ export default function Dashboard() {
           student.finalStatus === "not_started");
       return matchesSearch && matchesTerm && matchesStatus;
     }) ?? [];
-
-  if (!ready) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-[14px] text-[var(--muted)]">Loading…</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col">

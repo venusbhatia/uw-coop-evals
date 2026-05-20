@@ -7,8 +7,14 @@ export const EXTENSION_SERVICE_EMAIL = "extension@8090.inc";
 export const DEMO_EVALUATOR_EMAIL = "demo@8090.inc";
 
 export function sessionIssuer(): string {
+  const fromEnv = process.env.SESSION_ISSUER?.trim();
+  if (fromEnv) return fromEnv;
+
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:8090";
+  }
+
   return (
-    process.env.SESSION_ISSUER?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     "https://employee-evals.vercel.app"
   );

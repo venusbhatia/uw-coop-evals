@@ -2,23 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
-import { api } from "convex/_generated/api";
 import {
   DEMO_EVALUATOR_EMAIL,
   getEvaluatorEmail,
   isValid8090Email,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
-import {
-  createServerSession,
-  fetchServerSessionEmail,
-  waitForConvexAuth,
-} from "@/lib/evaluatorApi";
+import { createServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
+import { runSeedDemo } from "@/lib/seedDemo";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const seedDemo = useMutation(api.students.seedDemo);
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -58,8 +52,7 @@ export default function OnboardingPage() {
     try {
       await createServerSession(DEMO_EVALUATOR_EMAIL);
       setEvaluatorEmail(DEMO_EVALUATOR_EMAIL);
-      await waitForConvexAuth();
-      await seedDemo();
+      await runSeedDemo();
       router.replace("/");
     } catch (e: unknown) {
       const msg =
