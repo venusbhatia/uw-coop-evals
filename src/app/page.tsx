@@ -189,7 +189,7 @@ export default function Dashboard() {
                     <td className="py-4 px-4 text-right">
                       <Link
                         href={`/student/${s._id}`}
-                        className="text-[13px] font-medium hover:underline"
+                        className="btn-primary inline-flex items-center justify-center px-4 py-2 text-[13px] shrink-0"
                       >
                         Open
                       </Link>
