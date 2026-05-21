@@ -1,6 +1,19 @@
 # Employee Evals
 
-Guided co-op performance evaluations for 8090 supervisors, built with Next.js and Convex.
+Thoughtful University of Waterloo co-op performance evaluations for 8090 supervisors — section-by-section UW SPE forms, optional multi-supervisor reconciliation, internal HR/VP review, then WaterlooWorks export.
+
+Built with Next.js and Convex.
+
+## Evaluation workflow
+
+1. **Supervisor** completes the full UW form (`/student/[id]/form`) — save draft anytime.
+2. Optional: second supervisor draft → **reconcile** conflicting ratings.
+3. **Submit for HR review** when the form is complete.
+4. **8090 HR** approves or returns with comments (`/reviews`).
+5. **8090 VP** gives final approval.
+6. **Finalized** evaluations unlock JSON/PDF export and the Chrome extension.
+
+AI chat (`/chat/new`) is optional — it creates a supervisor draft, then sends you to the full form for review.
 
 ## Local development
 
@@ -10,39 +23,46 @@ node scripts/generate-jwt-keys.mjs   # prints JWT_PRIVATE_KEY and JWKS for .env.
 npm run dev
 ```
 
-Open [http://localhost:8090](http://localhost:8090) (or the port shown in the terminal).
+Open [http://localhost:8090](http://localhost:8090).
 
-Copy variables from [`.env.example`](.env.example) into `.env.local`. Required for auth and evaluations:
+Copy variables from [`.env.example`](.env.example) into `.env.local`. Required:
 
 - `NEXT_PUBLIC_CONVEX_URL`
-- `JWT_PRIVATE_KEY` and `JWKS` (matching pair from the script above)
+- `JWT_PRIVATE_KEY` and `JWKS` (matching pair)
 - `SESSION_ISSUER` (e.g. `http://localhost:8090` in dev)
-- `XAI_API_KEY` (AI compiles the evaluation on Finish)
+- `XAI_API_KEY` (optional AI assistant)
+- `ALLOW_SEED_DEMO=true` (to use “Reload demo” / demo sign-in)
+- `HR_REVIEWER_EMAILS` / `VP_REVIEWER_EMAILS` (comma-separated; also set on **Convex** env)
 
-Run Convex in another terminal: `npx convex dev`.
+Run Convex in another terminal:
 
-## Production deployment (Vercel + Convex)
+```bash
+npx convex dev
+```
 
-Set these on **Vercel** (production environment):
+Set the same `HR_REVIEWER_EMAILS`, `VP_REVIEWER_EMAILS`, `ALLOW_SEED_DEMO`, and `SESSION_ISSUER` on your Convex dev deployment.
 
-| Variable | Requirement |
-|----------|-------------|
-| `JWT_PRIVATE_KEY` | RS256 private key; must match `JWKS` |
-| `JWKS` | Public JWKS JSON from the same keypair |
-| `SESSION_ISSUER` | Exact app URL, e.g. `https://employee-evals.vercel.app` (no trailing spaces) |
-| `NEXT_PUBLIC_CONVEX_URL` | Your Convex deployment URL |
-| `XAI_API_KEY` | Required for the evaluation wizard Finish step |
+## Roles
 
-Set on **Convex** for the same deployment:
+| Role | Config |
+|------|--------|
+| Supervisor | Any `@8090.inc` email (default) |
+| HR | Listed in `HR_REVIEWER_EMAILS` |
+| VP | Listed in `VP_REVIEWER_EMAILS` |
 
-| Variable | Requirement |
-|----------|-------------|
-| `SESSION_ISSUER` | Same value as Vercel (`convex/auth.config.ts` uses this as OIDC issuer) |
+## Chrome extension
 
-If session cookies were signed with old keys, users must sign in again at `/onboarding`.
+See [extension/README.md](extension/README.md). Test against `http://localhost:8090` only until deployment is approved.
+
+## Deployment
+
+**Do not deploy to Vercel until explicitly approved.** Use local dev + Convex dev for QA.
+
+When ready, sync env vars on Vercel and Convex (`SESSION_ISSUER`, JWT keys, role emails, `EXTENSION_API_KEY`, `ALLOW_SEED_DEMO=false` in production).
 
 ## Auth troubleshooting
 
-- **401 on `/api/auth/session` or `/api/auth/convex-token`**: Sign in again at `/onboarding`. Verify `JWT_PRIVATE_KEY` and `JWKS` are a matching pair.
-- **Finish spins then stops**: Session may have expired mid-eval; use the sign-in link on the error banner (`/onboarding?returnTo=...` returns you to the eval).
-- **Convex "Unauthenticated"**: Ensure `SESSION_ISSUER` matches on Vercel and Convex, and that `/.well-known/jwks.json` is reachable on your app URL.
+- **401 on session routes**: Sign in again at `/onboarding`. Verify `JWT_PRIVATE_KEY` / `JWKS` match.
+- **Convex "Unauthenticated"**: `SESSION_ISSUER` must match on Next.js and Convex; `/.well-known/jwks.json` must be reachable.
+- **Seed disabled**: Set `ALLOW_SEED_DEMO=true` in `.env.local` and Convex.
+- **Export 403**: Evaluation must be **finalized** (VP approved) before JSON/PDF/extension.

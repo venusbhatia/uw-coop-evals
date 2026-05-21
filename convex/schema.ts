@@ -1,101 +1,39 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  developmentsValidator,
+  futureEmploymentValidator,
+  ratingsValidator,
+  reviewDecisionValidator,
+  revisionNoteValidator,
+  strengthsValidator,
+} from "./lib/evaluationFields";
 
 export default defineSchema({
+  users: defineTable({
+    email: v.string(),
+    role: v.string(), // "supervisor" | "hr" | "vp"
+    displayName: v.optional(v.string()),
+  }).index("by_email", ["email"]),
+
   students: defineTable({
     name: v.string(),
     studentId: v.string(),
     jobTitle: v.string(),
     team: v.optional(v.string()),
-    term: v.string(), // "Winter" | "Spring" | "Fall"
+    term: v.string(),
     year: v.string(),
-    midtermStatus: v.string(), // "not_started" | "drafting" | "ready_reconcile" | "completed"
-    finalStatus: v.string(), // "not_started" | "drafting" | "ready_reconcile" | "completed"
+    midtermStatus: v.string(),
+    finalStatus: v.string(),
   }),
+
   evaluations: defineTable({
     studentId: v.id("students"),
     evaluatorName: v.string(),
-    type: v.string(), // "midterm" | "final"
-    ratings: v.object({
-      learnJobDuties: v.number(), // 0 = Not Observed, 1-4
-      locateInfo: v.number(),
-      drawConclusions: v.number(),
-      employTechSkills: v.number(),
-      applyPriorKnowledge: v.number(),
-      deliverQualityWork: v.number(),
-      meetDeadlines: v.number(),
-      analyzeProblems: v.number(),
-      engageWithCuriosity: v.number(),
-      identifyImprovements: v.number(),
-      adaptToChange: v.number(),
-      recognizeLimits: v.number(),
-      respondToFeedback: v.number(),
-      seekTasks: v.number(),
-      seekOpportunitiesToLearn: v.number(),
-      writeClearly: v.number(),
-      orallyConveyIdeas: v.number(),
-      collaborateWell: v.number(),
-      ethicalConduct: v.number(),
-      showSensitivity: v.number(),
-    }),
-    strengths: v.object({
-      selections: v.array(v.string()), // 3 competencies from list of 12
-      comments: v.string(),
-    }),
-    developments: v.object({
-      selections: v.array(v.string()), // 3 competencies from list of 12
-      comments: v.string(),
-    }),
-    sdgs: v.array(v.number()), // array of numbers from 1 to 17
-    overallRating: v.string(), // "outstanding", "excellent", "very_good", "good", "satisfactory", "marginal", "unsatisfactory"
-    overallComments: v.string(),
-    outstandingComments: v.string(),
-    recommendations: v.string(),
-    reviewedWithStudent: v.boolean(),
-    studentComments: v.string(),
-    futureEmployment: v.object({
-      returnTerm: v.string(), // "yes" | "no" | "not_applicable"
-      offeredReemployment: v.string(), // "yes" | "no" | "to_be_determined"
-      response: v.string(), // "accepted" | "declined" | "is_undecided"
-      datesFrom: v.string(),
-      datesTo: v.string(),
-    }),
-    status: v.string(), // "draft" | "completed"
-    createdAt: v.number(),
-  }),
-  reconciledEvaluations: defineTable({
-    studentId: v.id("students"),
-    type: v.string(), // "midterm" | "final"
-    ratings: v.object({
-      learnJobDuties: v.number(),
-      locateInfo: v.number(),
-      drawConclusions: v.number(),
-      employTechSkills: v.number(),
-      applyPriorKnowledge: v.number(),
-      deliverQualityWork: v.number(),
-      meetDeadlines: v.number(),
-      analyzeProblems: v.number(),
-      engageWithCuriosity: v.number(),
-      identifyImprovements: v.number(),
-      adaptToChange: v.number(),
-      recognizeLimits: v.number(),
-      respondToFeedback: v.number(),
-      seekTasks: v.number(),
-      seekOpportunitiesToLearn: v.number(),
-      writeClearly: v.number(),
-      orallyConveyIdeas: v.number(),
-      collaborateWell: v.number(),
-      ethicalConduct: v.number(),
-      showSensitivity: v.number(),
-    }),
-    strengths: v.object({
-      selections: v.array(v.string()),
-      comments: v.string(),
-    }),
-    developments: v.object({
-      selections: v.array(v.string()),
-      comments: v.string(),
-    }),
+    type: v.string(),
+    ratings: ratingsValidator,
+    strengths: strengthsValidator,
+    developments: developmentsValidator,
     sdgs: v.array(v.number()),
     overallRating: v.string(),
     overallComments: v.string(),
@@ -103,15 +41,36 @@ export default defineSchema({
     recommendations: v.string(),
     reviewedWithStudent: v.boolean(),
     studentComments: v.string(),
-    futureEmployment: v.object({
-      returnTerm: v.string(),
-      offeredReemployment: v.string(),
-      response: v.string(),
-      datesFrom: v.string(),
-      datesTo: v.string(),
-    }),
-    signOffs: v.array(v.string()), // list of evaluators who signed off
-    status: v.string(), // "draft" | "completed"
+    futureEmployment: futureEmploymentValidator,
+    status: v.string(), // "in_progress" | "completed"
     createdAt: v.number(),
-  }),
+  })
+    .index("by_student_type", ["studentId", "type"])
+    .index("by_student_type_evaluator", ["studentId", "type", "evaluatorName"]),
+
+  reconciledEvaluations: defineTable({
+    studentId: v.id("students"),
+    type: v.string(),
+    ratings: ratingsValidator,
+    strengths: strengthsValidator,
+    developments: developmentsValidator,
+    sdgs: v.array(v.number()),
+    overallRating: v.string(),
+    overallComments: v.string(),
+    outstandingComments: v.string(),
+    recommendations: v.string(),
+    reviewedWithStudent: v.boolean(),
+    studentComments: v.string(),
+    futureEmployment: futureEmploymentValidator,
+    signOffs: v.array(v.string()),
+    status: v.string(), // legacy: "draft" | "completed"
+    workflowStatus: v.optional(v.string()),
+    submittedAt: v.optional(v.number()),
+    submittedBy: v.optional(v.string()),
+    hrReview: v.optional(reviewDecisionValidator),
+    vpReview: v.optional(reviewDecisionValidator),
+    revisionHistory: v.optional(v.array(revisionNoteValidator)),
+    sectionProgress: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+  }).index("by_student_type", ["studentId", "type"]),
 });

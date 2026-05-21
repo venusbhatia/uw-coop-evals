@@ -8,6 +8,15 @@ import {
 } from "@/lib/apiAuth";
 
 export async function POST(request: Request) {
+  const allow =
+    process.env.ALLOW_SEED_DEMO === "true" || process.env.ALLOW_SEED_DEMO === "1";
+  if (!allow) {
+    return NextResponse.json(
+      { error: "Demo seed is disabled. Set ALLOW_SEED_DEMO=true.", code: "SEED_DISABLED" },
+      { status: 403 },
+    );
+  }
+
   const sessionOrResponse = await requireApiSession(request);
   if (!isSessionPayload(sessionOrResponse)) {
     return sessionOrResponse;

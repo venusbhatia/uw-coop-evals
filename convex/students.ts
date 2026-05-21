@@ -7,7 +7,11 @@ import {
   DEMO_STUDENTS,
   teamFromJobTitle,
 } from "./seedData";
-import { requireAuth, requireSeedDemoAuth } from "./lib/requireAuth";
+import {
+  requireAuth,
+  requireAuthMutation,
+  requireSeedDemoAuth,
+} from "./lib/requireAuth";
 
 // List all students (newest first)
 export const list = query({
@@ -58,7 +62,7 @@ export const add = mutation({
     jobTitle: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireAuthMutation(ctx);
     const year = args.year ?? String(new Date().getFullYear());
     return await ctx.db.insert("students", {
       name: args.name,
@@ -90,6 +94,10 @@ export const seedDemo = mutation({
     const allReconciled = await ctx.db.query("reconciledEvaluations").collect();
     for (const r of allReconciled) {
       await ctx.db.delete(r._id);
+    }
+    const allUsers = await ctx.db.query("users").collect();
+    for (const u of allUsers) {
+      await ctx.db.delete(u._id);
     }
 
     // 2. Insert 20 demo students
@@ -295,20 +303,41 @@ export const seedDemo = mutation({
       },
       signOffs: [DEMO_EVALUATOR_1, DEMO_EVALUATOR_2],
       status: "completed",
-      createdAt: Date.now() - 86400000 * 5, // 5 days ago
+      workflowStatus: "finalized",
+      submittedAt: Date.now() - 86400000 * 4,
+      submittedBy: DEMO_EVALUATOR_1,
+      createdAt: Date.now() - 86400000 * 5,
     };
 
-    // Also populate midterm for Bob as completed
     await ctx.db.insert("reconciledEvaluations", {
       ...reconciledData,
       type: "midterm",
       overallRating: "excellent",
       outstandingComments: "",
       status: "completed",
+      workflowStatus: "finalized",
+      submittedAt: Date.now() - 86400000 * 6,
+      submittedBy: DEMO_EVALUATOR_1,
     });
 
-    // Final is completed
     await ctx.db.insert("reconciledEvaluations", reconciledData);
+
+    // Demo: one student pending HR (Carol placeholder — use Priya)
+    const idPriya = idByStudentNumber["20930112"]!;
+    await ctx.db.insert("reconciledEvaluations", {
+      ...reconciledData,
+      studentId: idPriya,
+      type: "midterm",
+      overallRating: "very_good",
+      outstandingComments: "",
+      signOffs: [DEMO_EVALUATOR_1],
+      status: "draft",
+      workflowStatus: "pending_hr",
+      submittedAt: Date.now() - 3600000,
+      submittedBy: DEMO_EVALUATOR_1,
+      createdAt: Date.now() - 86400000,
+    });
+    await ctx.db.patch(idPriya, { midtermStatus: "pending_hr" });
 
     return { success: true };
   },

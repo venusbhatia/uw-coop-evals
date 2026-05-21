@@ -45,11 +45,15 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const name = searchParams.get("name");
+  const studentId = searchParams.get("studentId");
 
-  if (!name) {
+  if (!name?.trim() && !studentId?.trim()) {
     return withCors(
       request,
-      NextResponse.json({ error: "Missing 'name' query parameter" }, { status: 400 }),
+      NextResponse.json(
+        { error: "Missing 'name' or 'studentId' query parameter" },
+        { status: 400 },
+      ),
     );
   }
 
@@ -65,7 +69,10 @@ export async function GET(request: NextRequest) {
     const client = new ConvexHttpClient(convexUrl);
     const token = await convexTokenForExtension();
     client.setAuth(token);
-    const data = await client.query(api.evaluations.getCompletedForExport, { name });
+    const data = await client.query(api.evaluations.getCompletedForExport, {
+      name: name?.trim() || undefined,
+      studentId: studentId?.trim() ? (studentId as import("convex/_generated/dataModel").Id<"students">) : undefined,
+    });
 
     if (!data) {
       return withCors(

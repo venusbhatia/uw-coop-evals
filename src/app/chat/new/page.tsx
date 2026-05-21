@@ -207,7 +207,6 @@ function SimpleEvaluation() {
       await ensureEvaluationAuth();
       await submitDraft({
         studentId: studentId as Id<"students">,
-        evaluatorName,
         type: evalType,
         ratings: payload.ratings as Parameters<typeof submitDraft>[0]["ratings"],
         strengths: payload.strengths,
@@ -221,10 +220,12 @@ function SimpleEvaluation() {
         studentComments: payload.studentComments,
         futureEmployment: payload.futureEmployment,
       });
-      await downloadWaterlooJson();
       setCompleted(true);
       setSubmitting(false);
-      setTimeout(() => router.push(`/student/${studentId}`), 4000);
+      setTimeout(
+        () => router.push(`/student/${studentId}/form?type=${evalType}`),
+        1500,
+      );
     } catch (e: unknown) {
       handleAuthFailure(e);
       setSubmitting(false);

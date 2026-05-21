@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getClientIp, routeToRateLimitGroup } from "@/lib/rateLimit";
 
 describe("routeToRateLimitGroup", () => {
-  it("does not rate limit transcribe", () => {
-    expect(routeToRateLimitGroup("/api/transcribe")).toBeNull();
+  it("rate limits transcribe", () => {
+    expect(routeToRateLimitGroup("/api/transcribe")).toBe("transcribe");
   });
 
   it("rate limits chat", () => {
