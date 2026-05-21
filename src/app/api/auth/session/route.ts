@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     if (!isValidSignInEmail(email)) {
       return NextResponse.json(
-        { error: "Invalid work email.", code: "INVALID_EMAIL" },
+        { error: "Invalid email address.", code: "INVALID_EMAIL" },
         { status: 400 },
       );
     }

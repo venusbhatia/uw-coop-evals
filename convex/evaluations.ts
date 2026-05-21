@@ -100,7 +100,7 @@ export const saveSubmissionDraft = mutation({
     ...evalPayloadArgs,
   },
   handler: async (ctx, args) => {
-    const { email, role } = await requireAuthMutation(ctx);
+    const { role } = await requireAuthMutation(ctx);
     if (role !== "supervisor") {
       throw new Error("Only supervisors can edit evaluation drafts.");
     }
