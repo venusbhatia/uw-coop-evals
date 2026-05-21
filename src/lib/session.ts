@@ -43,7 +43,7 @@ export async function createConvexToken(email: string): Promise<string> {
 
   const key = await getSigningKey();
   return new SignJWT({ email: normalized })
-    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: "employee-evals-1" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setSubject(normalized)
     .setIssuedAt()
     .setIssuer(sessionIssuer())
