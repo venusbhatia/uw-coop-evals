@@ -2,6 +2,9 @@
 
 export const DEMO_EVALUATOR_1 = "sarah@gmail.com";
 export const DEMO_EVALUATOR_2 = "marcus@work.com";
+/** Sign in with these on /onboarding to use the HR / VP review queue (set in Convex env). */
+export const DEMO_HR_EMAIL = "demo-hr@evals.com";
+export const DEMO_VP_EMAIL = "demo-vp@evals.com";
 
 export type DemoStudentSeed = {
   name: string;

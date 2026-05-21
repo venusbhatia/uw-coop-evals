@@ -6,13 +6,12 @@ import {
   isSessionPayload,
   requireApiSession,
 } from "@/lib/apiAuth";
+import { DEMO_SEED_DISABLED_MESSAGE, isDemoSeedEnabled } from "@/lib/demoSeed";
 
 export async function POST(request: Request) {
-  const allow =
-    process.env.ALLOW_SEED_DEMO === "true" || process.env.ALLOW_SEED_DEMO === "1";
-  if (!allow) {
+  if (!isDemoSeedEnabled()) {
     return NextResponse.json(
-      { error: "Demo seed is disabled. Set ALLOW_SEED_DEMO=true.", code: "SEED_DISABLED" },
+      { error: DEMO_SEED_DISABLED_MESSAGE, code: "SEED_DISABLED" },
       { status: 403 },
     );
   }

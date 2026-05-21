@@ -54,11 +54,26 @@ Any valid email address is accepted (work, Gmail, etc.). Sign in at `/onboarding
 | HR | Listed in `HR_REVIEWER_EMAILS` |
 | VP | Listed in `VP_REVIEWER_EMAILS` |
 
-## Deployment
+## Deployment (Vercel + Convex)
 
-**Do not deploy until explicitly approved.** Use local dev + Convex dev for QA.
+Production URL: `https://employee-evals.vercel.app`
 
-When ready, set `SESSION_ISSUER` to `https://evals.com` (or your app URL) on both Next.js and Convex. Use `ALLOW_SEED_DEMO=false` in production.
+Set on **Vercel** (Production env):
+
+- `SESSION_ISSUER` — your app URL (e.g. `https://employee-evals.vercel.app`)
+- `JWT_PRIVATE_KEY` / `JWKS` — matching pair
+- `NEXT_PUBLIC_CONVEX_URL` — Convex prod URL
+- `ALLOW_SEED_DEMO=true` — required for “See demo” / “Reload demo”
+- `XAI_API_KEY`, `DEEPGRAM_API_KEY`, `EXTENSION_API_KEY` as needed
+
+Set on **Convex** (production deployment):
+
+- `SESSION_ISSUER` — same as Vercel
+- `ALLOW_SEED_DEMO=true`
+- `HR_REVIEWER_EMAILS=demo-hr@evals.com` (comma-separated)
+- `VP_REVIEWER_EMAILS=demo-vp@evals.com`
+
+Redeploy Vercel after changing env vars.
 
 ## Auth troubleshooting
 

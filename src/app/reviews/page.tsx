@@ -80,10 +80,10 @@ export default function ReviewsPage() {
   if (role !== "hr" && role !== "vp") {
     return (
       <div className="min-h-screen p-8 max-w-lg mx-auto">
-        <p className="text-sm text-[var(--muted)]">
-          Review queue is for HR and VP accounts. Set{" "}
-          <code className="text-xs">HR_REVIEWER_EMAILS</code> or{" "}
-          <code className="text-xs">VP_REVIEWER_EMAILS</code> in Convex env.
+        <p className="text-sm text-[var(--muted)] leading-relaxed">
+          Review queue is for HR and VP accounts. In the demo, sign in as{" "}
+          <span className="font-medium">demo-hr@evals.com</span> or{" "}
+          <span className="font-medium">demo-vp@evals.com</span> on the onboarding page.
         </p>
         <Link href="/" className="text-sm underline mt-4 inline-block">
           Back to dashboard

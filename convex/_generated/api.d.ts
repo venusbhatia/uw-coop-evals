@@ -9,6 +9,7 @@
  */
 
 import type * as evaluations from "../evaluations.js";
+import type * as lib_demoSeed from "../lib/demoSeed.js";
 import type * as lib_evaluationFields from "../lib/evaluationFields.js";
 import type * as lib_requireAuth from "../lib/requireAuth.js";
 import type * as lib_workflow from "../lib/workflow.js";
@@ -24,6 +25,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   evaluations: typeof evaluations;
+  "lib/demoSeed": typeof lib_demoSeed;
   "lib/evaluationFields": typeof lib_evaluationFields;
   "lib/requireAuth": typeof lib_requireAuth;
   "lib/workflow": typeof lib_workflow;

@@ -1,4 +1,5 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { isDemoSeedEnabled } from "./demoSeed";
 import { ensureUser, getUserRole, type UserRole } from "../users";
 
 export function resolveEvaluatorEmail(identity: {
@@ -65,10 +66,8 @@ export async function requireRole(
 }
 
 export async function requireSeedDemoAuth(ctx: MutationCtx): Promise<{ email: string }> {
-  const allow =
-    process.env.ALLOW_SEED_DEMO === "true" || process.env.ALLOW_SEED_DEMO === "1";
-  if (!allow) {
-    throw new Error("Demo seed is disabled. Set ALLOW_SEED_DEMO=true to enable.");
+  if (!isDemoSeedEnabled()) {
+    throw new Error("Demo data is not enabled on this deployment.");
   }
   const auth = await requireAuthMutation(ctx);
   return { email: auth.email };

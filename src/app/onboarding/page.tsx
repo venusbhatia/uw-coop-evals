@@ -115,7 +115,8 @@ function OnboardingForm() {
               required
             />
             <p className="text-[13px] text-[var(--muted)] mt-2 leading-relaxed">
-              Sign in with your work or personal email.
+              Sign in with your work or personal email. Demo HR: demo-hr@evals.com · Demo VP:
+              demo-vp@evals.com
             </p>
           </div>
 
