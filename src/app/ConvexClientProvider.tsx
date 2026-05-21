@@ -22,6 +22,9 @@ function useSessionAuth() {
       });
       if (!res.ok) {
         setIsAuthenticated(false);
+        if (res.status === 401) {
+          await fetch("/api/auth/session", { method: "DELETE", credentials: "include" });
+        }
         return null;
       }
       const data = (await res.json()) as { token?: string };

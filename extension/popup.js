@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const hubs = [
       "https://employee-evals.vercel.app",
-      "http://localhost:8090",
+      "http://localhost:3000",
     ];
 
     try {
@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       if (!response) {
-        throw new Error("Could not reach Employee Evals (production or localhost).");
+        throw new Error("Could not reach Evals.com (production or localhost).");
       }
       
       if (!response.ok) {
@@ -95,36 +95,57 @@ document.addEventListener("DOMContentLoaded", () => {
     statusBox.textContent = "Auto-filling form...";
     fillBtn.disabled = true;
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length === 0) {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs.length === 0 || tabs[0].id === undefined) {
         statusBox.className = "status error";
         statusBox.textContent = "No active tab found.";
         fillBtn.disabled = false;
         return;
       }
 
+      const tabId = tabs[0].id;
       const evalPayload = fetchedData.evaluation ?? fetchedData;
-      chrome.tabs.sendMessage(tabs[0].id, {
-        action: "fillForm",
-        data: evalPayload
-      }, (response) => {
-        fillBtn.disabled = false;
-        
-        if (chrome.runtime.lastError) {
-          statusBox.className = "status error";
-          statusBox.textContent = "Error: Cannot fill form. Make sure WaterlooWorks is open.";
-          console.error(chrome.runtime.lastError);
-          return;
-        }
 
-        if (response && response.success) {
-          statusBox.className = "status success";
-          statusBox.textContent = "Evaluation form filled! Double-check and submit.";
-        } else {
-          statusBox.className = "status error";
-          statusBox.textContent = response?.error || "Failed to locate form fields.";
-        }
-      });
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ["content.js"],
+        });
+      } catch (err) {
+        fillBtn.disabled = false;
+        statusBox.className = "status error";
+        statusBox.textContent =
+          "Cannot access this page. Open the employer evaluation form in this tab first.";
+        console.error(err);
+        return;
+      }
+
+      chrome.tabs.sendMessage(
+        tabId,
+        {
+          action: "fillForm",
+          data: evalPayload,
+        },
+        (response) => {
+          fillBtn.disabled = false;
+
+          if (chrome.runtime.lastError) {
+            statusBox.className = "status error";
+            statusBox.textContent =
+              "Error: Cannot fill form. Open the employer evaluation form in this tab first.";
+            console.error(chrome.runtime.lastError);
+            return;
+          }
+
+          if (response && response.success) {
+            statusBox.className = "status success";
+            statusBox.textContent = "Evaluation form filled! Double-check and submit.";
+          } else {
+            statusBox.className = "status error";
+            statusBox.textContent = response?.error || "Failed to locate form fields.";
+          }
+        },
+      );
     });
   });
 });

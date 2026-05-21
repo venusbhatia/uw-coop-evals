@@ -26,8 +26,9 @@ export function ConvexAuthGate({
     return (
       fallback ?? (
         <div className="min-h-screen flex items-center justify-center px-6 text-center">
-          <p className="text-[14px] text-[var(--muted)]">
-            Session not connected to the database.{" "}
+          <p className="text-[14px] text-[var(--muted)] max-w-sm">
+            Your sign-in could not connect to the database. This usually clears after signing in
+            again.{" "}
             <a href="/onboarding" className="underline">
               Sign in again
             </a>

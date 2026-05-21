@@ -8,5 +8,10 @@ export default {
       domain: issuer,
       applicationID: "evals-com",
     },
+    /** Legacy audience from pre-rebrand deploys; remove after all sessions have rotated. */
+    {
+      domain: issuer,
+      applicationID: "employee-evals",
+    },
   ],
 } satisfies AuthConfig;

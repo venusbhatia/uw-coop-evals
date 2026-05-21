@@ -45,7 +45,7 @@ const SECTION_GUIDANCE = [
   "Choose three Future-Ready competencies that best describe this student's strengths, with specific examples.",
   "Choose three areas for development with constructive, actionable feedback.",
   "Select SDGs their work meaningfully supported (if any).",
-  "Summarize overall performance. Be specific and professional — this text may be shared with the student and UW.",
+  "Summarize overall performance. Be specific and professional — this text may be shared with the student and your organization.",
   "Confirm whether you reviewed this evaluation with the student and capture their comments if applicable.",
   "Indicate future employment intentions if known.",
 ];

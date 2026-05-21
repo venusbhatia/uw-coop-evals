@@ -1,16 +1,14 @@
-# WaterlooWorks autofill extension
+# Evals.com browser autofill extension
 
-## Install (local development)
+Chrome extension that fills employer-hosted student performance evaluation forms using finalized data from Evals.com.
 
-1. Run the app at `http://localhost:8090` (`npm run dev`).
-2. Set `EXTENSION_API_KEY` in `.env.local` (same value as the server).
-3. Open `chrome://extensions`, enable **Developer mode**, **Load unpacked**, select this `extension/` folder.
-4. Open the extension popup → DevTools on the popup → run:
-   ```js
-   chrome.storage.local.set({ extensionApiKey: "YOUR_EXTENSION_API_KEY" })
-   ```
-5. Finalize an evaluation in the app (VP approval), then fetch by student name on WaterlooWorks.
+1. Run the app at `http://localhost:3000` (`npm run dev`).
+2. Load this folder as an unpacked extension in Chrome.
+3. Set your extension API key in DevTools console:
 
-The extension unwraps `evaluation` from the API response before filling the form.
+   `chrome.storage.local.set({ extensionApiKey: 'YOUR_KEY' })`
 
-**Do not point production traffic at Vercel until deployment is explicitly approved.**
+4. Open your employer's evaluation form in the browser.
+5. Finalize an evaluation in Evals.com (VP approval), then fetch by student name in the extension popup and auto-fill.
+
+Production hub: `https://employee-evals.vercel.app`

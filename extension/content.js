@@ -1,18 +1,18 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "fillForm") {
     try {
-      const result = fillWaterlooWorksForm(request.data);
+      const result = fillEvaluationForm(request.data);
       sendResponse(result);
     } catch (err) {
-      console.error("[WaterlooWorks Filler Error]:", err);
+      console.error("[Evals.com Autofill Error]:", err);
       sendResponse({ success: false, error: err.message });
     }
   }
   return true;
 });
 
-function fillWaterlooWorksForm(evalData) {
-  console.log("[WaterlooWorks Filler] Starting form fill with data:", evalData);
+function fillEvaluationForm(evalData) {
+  console.log("[Evals.com Autofill] Starting form fill with data:", evalData);
 
   // Helper: Find a text input or textarea by label text match
   const findTextareaByLabel = (keywords) => {
@@ -58,13 +58,13 @@ function fillWaterlooWorksForm(evalData) {
       const ta = findTextareaByLabel(field.keywords);
       if (ta) {
         ta.value = field.value;
-        // Trigger input event for React/Angular page listeners on WaterlooWorks
+        // Trigger input event for React/Angular page listeners on the host form
         ta.dispatchEvent(new Event("input", { bubbles: true }));
         ta.dispatchEvent(new Event("change", { bubbles: true }));
-        console.log(`[WaterlooWorks Filler] Filled textarea: ${key}`);
+        console.log(`[Evals.com Autofill] Filled textarea: ${key}`);
         filledCount++;
       } else {
-        console.warn(`[WaterlooWorks Filler] Could not find textarea for: ${key}`);
+        console.warn(`[Evals.com Autofill] Could not find textarea for: ${key}`);
       }
     }
   }
@@ -137,10 +137,10 @@ function fillWaterlooWorksForm(evalData) {
       }
     }
   }
-  console.log(`[WaterlooWorks Filler] Filled ${ratingsFilled}/20 competency ratings.`);
+  console.log(`[Evals.com Autofill] Filled ${ratingsFilled}/20 competency ratings.`);
 
   // 3. Fill Top 3 Strengths & Development Checkboxes
-  // WaterlooWorks may list the 12 competencies of the Future Ready Talent Framework.
+  // The host form may list the 12 competencies of the Future Ready Talent Framework.
   const allCheckboxes = Array.from(document.querySelectorAll("input[type='checkbox']"));
   
   const tickCheckboxesByName = (selections) => {
@@ -213,7 +213,7 @@ function fillWaterlooWorksForm(evalData) {
       if (targetRadio) {
         targetRadio.checked = true;
         targetRadio.dispatchEvent(new Event("change", { bubbles: true }));
-        console.log(`[WaterlooWorks Filler] Set overall performance rating to: ${evalData.overallRating}`);
+        console.log(`[Evals.com Autofill] Set overall performance rating to: ${evalData.overallRating}`);
       }
     }
   }

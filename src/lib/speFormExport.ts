@@ -238,11 +238,11 @@ export function buildSpeExport(params: {
       signOffs: evaluation.signOffs ?? [],
     },
     /** Flat shape used by the Chrome extension autofill. */
-    waterlooWorksAutofill: legacyFlat,
+    extensionAutofill: legacyFlat,
     pages: {
       page1_cover: {
         title: "Student Performance Evaluation",
-        department: "Co-operative Education",
+        department: "Work-term program",
         term: {
           winter: student.term === "Winter",
           spring: student.term === "Spring",

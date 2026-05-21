@@ -1,29 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Employee Evals — WaterlooWorks Filler",
+  "name": "Evals.com — SPE Form Autofill",
   "version": "1.0",
-  "description": "Auto-fills student performance evaluation forms on WaterlooWorks using data fetched from the local Evals Hub.",
+  "description": "Auto-fills student performance evaluation forms on supported employer portals using data from Evals.com.",
   "permissions": [
     "activeTab",
     "scripting"
   ],
   "host_permissions": [
-    "https://*.waterlooworks.uwaterloo.ca/*",
-    "http://localhost:8090/*",
+    "http://localhost:3000/*",
     "https://employee-evals.vercel.app/*",
     "https://*.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://*.waterlooworks.uwaterloo.ca/*"
-      ],
-      "js": [
-        "content.js"
-      ]
-    }
-  ]
+  }
 }
