@@ -3,12 +3,26 @@ import { createLocalJWKSet, importPKCS8 } from "jose";
 let cachedPrivateKey: CryptoKey | null = null;
 let cachedJwks: ReturnType<typeof createLocalJWKSet> | null = null;
 
+let warnedMissingJwtEnv = false;
+
+function warnMissingJwtEnvOnce(): void {
+  if (warnedMissingJwtEnv || process.env.NODE_ENV === "production") return;
+  warnedMissingJwtEnv = true;
+  console.warn(
+    "[employee-evals] JWT_PRIVATE_KEY and JWKS are required for session auth. Run: node scripts/generate-jwt-keys.mjs",
+  );
+}
+
 function devPrivateKeyPem(): string {
-  return process.env.JWT_PRIVATE_KEY?.trim() || "";
+  const value = process.env.JWT_PRIVATE_KEY?.trim() || "";
+  if (!value) warnMissingJwtEnvOnce();
+  return value;
 }
 
 function devJwksJson(): string {
-  return process.env.JWKS?.trim() || "";
+  const value = process.env.JWKS?.trim() || "";
+  if (!value) warnMissingJwtEnvOnce();
+  return value;
 }
 
 export async function getSigningKey(): Promise<CryptoKey> {

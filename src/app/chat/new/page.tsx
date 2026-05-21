@@ -2,30 +2,58 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getEvaluatorEmail } from "@/lib/evaluatorSession";
-import { fetchServerSessionEmail } from "@/lib/evaluatorApi";
+import {
+  ensureEvaluationAuth,
+  buildEvaluationReturnTo,
+  buildOnboardingUrl,
+  fetchServerSessionEmail,
+  formatEvaluationError,
+  isEvaluationAuthError,
+} from "@/lib/evaluatorApi";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Download, Loader2, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download } from "lucide-react";
 import { downloadJsonFile } from "@/lib/waterlooFormExport";
 import type { Id } from "convex/_generated/dataModel";
-import { 
+import {
   SIMPLE_EVALUATION_QUESTION_COUNT,
   type ChatMessage,
   type DraftPayload,
 } from "@/lib/evaluationConfig";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { WizardProgress } from "@/components/evaluation/WizardProgress";
+import { ConvexAuthGate } from "@/components/ConvexAuthGate";
+import { VoiceAnswerField } from "@/components/voice/VoiceAnswerField";
 
 const MIN_ANSWER_LENGTH = 20;
 const TOTAL_UI_STEPS = 6;
+const CHAT_REQUEST_TIMEOUT_MS = 90_000;
 
 function formatFetchError(e: unknown): string {
-  if (e instanceof TypeError) {
-    return "Network error — check that the dev server is running.";
+  if (isEvaluationAuthError(e)) {
+    return e.message;
   }
-  return e instanceof Error ? e.message : "Something went wrong.";
+  if (e instanceof Error && e.name === "AbortError") {
+    return "The AI request timed out. Wait a moment and try again.";
+  }
+  if (e instanceof TypeError) {
+    return "Network error — check your connection and try again.";
+  }
+  return formatEvaluationError(e);
+}
+
+function mapChatHttpError(status: number, err: { error?: string; code?: string }): string {
+  if (status === 401 || err.code === "UNAUTHORIZED") {
+    return "Your session expired. Sign in again to save this evaluation.";
+  }
+  if (status === 429 || err.code === "RATE_LIMITED") {
+    return "Too many AI requests. Wait a minute and try again.";
+  }
+  if (status === 502 || status === 503) {
+    return err.error ?? "AI service unavailable. Try again shortly.";
+  }
+  return err.error ?? "Request failed.";
 }
 
 function buildMessages(questions: string[], answers: string[]): ChatMessage[] {
@@ -37,30 +65,54 @@ function buildMessages(questions: string[], answers: string[]): ChatMessage[] {
   return messages;
 }
 
+function AuthErrorBanner({
+  message,
+  signInHref,
+}: {
+  message: string;
+  signInHref: string;
+}) {
+  return (
+    <div className="mb-6 p-4 border border-red-500/40 rounded-2xl text-[14px] bg-[var(--surface)]">
+      <p>{message}</p>
+      <Link href={signInHref} className="mt-2 inline-block text-[14px] underline">
+        Sign in again
+      </Link>
+    </div>
+  );
+}
+
 function SimpleEvaluation() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const studentId = searchParams.get("studentId");
   const evalType = searchParams.get("type") || "midterm";
+  const returnTo =
+    studentId != null
+      ? buildEvaluationReturnTo(studentId, evalType)
+      : undefined;
+  const signInHref = buildOnboardingUrl(returnTo);
+
   const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [authBanner, setAuthBanner] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
         const serverEmail = await fetchServerSessionEmail();
         if (!serverEmail) {
-          router.replace("/onboarding");
+          router.replace(signInHref);
           return;
         }
         setEvaluatorEmail(serverEmail);
         setSessionReady(true);
       } catch {
-        router.replace("/onboarding");
+        router.replace(signInHref);
       }
     })();
-  }, [router]);
+  }, [router, signInHref]);
 
   const evaluatorName = evaluatorEmail ?? "";
 
@@ -84,13 +136,25 @@ function SimpleEvaluation() {
   const student = studentData?.student;
   const speech = useSpeechToText();
 
+  const handleAuthFailure = (e: unknown) => {
+    const message = formatFetchError(e);
+    setError(message);
+    if (isEvaluationAuthError(e)) {
+      setAuthBanner(message);
+    }
+  };
+
   const callChat = async (history: ChatMessage[]) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
+
     let res: Response;
     try {
       res = await fetch("/api/evaluation/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        signal: controller.signal,
         body: JSON.stringify({
           messages: history,
           studentName: student?.name ?? "Student",
@@ -99,15 +163,14 @@ function SimpleEvaluation() {
       });
     } catch (e) {
       throw new Error(formatFetchError(e));
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     const data = await res.json();
     if (!res.ok) {
       const err = data as { error?: string; code?: string };
-      if (res.status === 429 || err.code === "RATE_LIMITED") {
-        throw new Error("Too many AI requests. Wait a minute and try again.");
-      }
-      throw new Error(err.error ?? "Request failed.");
+      throw new Error(mapChatHttpError(res.status, err));
     }
     return data;
   };
@@ -138,8 +201,10 @@ function SimpleEvaluation() {
     if (!studentId || !evaluatorName) return;
     setSubmitting(true);
     setError("");
+    setAuthBanner(null);
     setExportError("");
     try {
+      await ensureEvaluationAuth();
       await submitDraft({
         studentId: studentId as Id<"students">,
         evaluatorName,
@@ -161,7 +226,7 @@ function SimpleEvaluation() {
       setSubmitting(false);
       setTimeout(() => router.push(`/student/${studentId}`), 4000);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to save draft.");
+      handleAuthFailure(e);
       setSubmitting(false);
     }
   };
@@ -178,7 +243,9 @@ function SimpleEvaluation() {
   const startFlow = async () => {
     setLoading(true);
     setError("");
+    setAuthBanner(null);
     try {
+      await ensureEvaluationAuth();
       const result = await fetchNextQuestion([]);
       if (result.kind === "submit") {
         await submitEvaluation(result.payload);
@@ -190,7 +257,7 @@ function SimpleEvaluation() {
       setCurrentAnswer("");
       setStep(1);
     } catch (e: unknown) {
-      setError(formatFetchError(e));
+      handleAuthFailure(e);
     } finally {
       setLoading(false);
     }
@@ -212,8 +279,10 @@ function SimpleEvaluation() {
 
     setLoading(true);
     setError("");
+    setAuthBanner(null);
 
     try {
+      await ensureEvaluationAuth();
       if (step < SIMPLE_EVALUATION_QUESTION_COUNT) {
         const result = await fetchNextQuestion(history);
         if (result.kind === "submit") {
@@ -239,7 +308,7 @@ function SimpleEvaluation() {
         }
       }
     } catch (e: unknown) {
-      setError(formatFetchError(e));
+      handleAuthFailure(e);
     } finally {
       setLoading(false);
     }
@@ -249,6 +318,7 @@ function SimpleEvaluation() {
     if (step <= 1) {
       setStep(0);
       setError("");
+      setAuthBanner(null);
       return;
     }
     const prev = step - 1;
@@ -257,6 +327,7 @@ function SimpleEvaluation() {
     setCurrentAnswer(answers[prev - 1] ?? "");
     speech.reset();
     setError("");
+    setAuthBanner(null);
   };
 
   const toggleMic = async () => {
@@ -277,8 +348,11 @@ function SimpleEvaluation() {
 
   const canContinue =
     step === 0
-      ? !loading && !submitting
-      : currentAnswer.trim().length >= MIN_ANSWER_LENGTH && !loading && !submitting;
+      ? !loading && !submitting && !voiceBusy
+      : currentAnswer.trim().length >= MIN_ANSWER_LENGTH &&
+        !loading &&
+        !submitting &&
+        !voiceBusy;
 
   if (!sessionReady) {
     return (
@@ -319,7 +393,7 @@ function SimpleEvaluation() {
     <div className="min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]">
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="max-w-xl mx-auto flex items-center gap-4">
-          <Link 
+          <Link
             href={`/student/${studentId}`}
             className="p-2 -ml-2 rounded-full hover:bg-[var(--surface)]"
             aria-label="Back"
@@ -342,7 +416,11 @@ function SimpleEvaluation() {
           label={progressLabel}
         />
 
-        {error && (
+        {authBanner && (
+          <AuthErrorBanner message={authBanner} signInHref={signInHref} />
+        )}
+
+        {error && !authBanner && (
           <div className="mb-6 p-4 border border-[var(--border)] rounded-2xl text-[14px] bg-[var(--surface)]">
             {error}
           </div>
@@ -394,66 +472,14 @@ function SimpleEvaluation() {
             <h2 className="text-[22px] font-semibold leading-snug tracking-tight">
               {currentQuestion}
             </h2>
-            <div className="flex-1 flex flex-col gap-3">
-              <textarea
-                value={currentAnswer}
-                onChange={(e) => setCurrentAnswer(e.target.value)}
-                placeholder={
-                  speech.isRecording
-                    ? "Listening…"
-                    : speech.isTranscribing
-                      ? "Transcribing…"
-                      : "Share your thoughts here…"
-                }
-                rows={6}
-                disabled={loading || voiceBusy}
-                className="input-field w-full flex-1 min-h-[160px] px-4 py-4 text-[16px] leading-relaxed resize-none"
-              />
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void toggleMic()}
-                  disabled={loading || speech.isTranscribing}
-                  className={`p-3 rounded-full border border-[var(--border)] shrink-0 ${
-                    speech.isRecording
-                      ? "bg-[var(--foreground)] text-[var(--background)]"
-                      : "hover:bg-[var(--surface)]"
-                  }`}
-                  aria-label={
-                    speech.isRecording ? "Stop recording" : "Record answer"
-                  }
-                >
-                  {speech.isTranscribing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : speech.isRecording ? (
-                    <MicOff className="w-5 h-5" />
-                  ) : (
-                    <Mic className="w-5 h-5" />
-                  )}
-                </button>
-                {speech.isRecording && (
-                  <button 
-                    type="button"
-                    onClick={speech.cancelRecording}
-                    className="text-[12px] text-[var(--muted)] underline"
-                  >
-                    Cancel
-                  </button>
-                )}
-                <p className="text-[12px] text-[var(--muted)]">
-                  {speech.isRecording
-                    ? "Listening… tap mic when done"
-                    : speech.isTranscribing
-                      ? "Transcribing…"
-                      : currentAnswer.trim().length < MIN_ANSWER_LENGTH
-                        ? `At least ${MIN_ANSWER_LENGTH} characters to continue`
-                        : "Tap mic to speak, or type above"}
-                </p>
-                </div>
-              {speech.error && (
-                <p className="text-[12px] text-[var(--muted)]">{speech.error}</p>
-              )}
-            </div>
+            <VoiceAnswerField
+              value={currentAnswer}
+              onChange={setCurrentAnswer}
+              speech={speech}
+              onToggleMic={toggleMic}
+              loading={loading}
+              minAnswerLength={MIN_ANSWER_LENGTH}
+            />
           </section>
         )}
       </main>
@@ -489,7 +515,7 @@ function SimpleEvaluation() {
             </button>
           </div>
         </footer>
-        )}
+      )}
     </div>
   );
 }
@@ -500,10 +526,12 @@ export default function EvaluationPage() {
       fallback={
         <div className="min-h-screen flex items-center justify-center">
           <p className="text-[14px] text-[var(--muted)]">Loading…</p>
-      </div>
+        </div>
       }
     >
-      <SimpleEvaluation />
+      <ConvexAuthGate>
+        <SimpleEvaluation />
+      </ConvexAuthGate>
     </Suspense>
   );
 }

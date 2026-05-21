@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Employee Evals
 
-## Getting Started
+Guided co-op performance evaluations for 8090 supervisors, built with Next.js and Convex.
 
-First, run the development server:
+## Local development
 
 ```bash
+npm install
+node scripts/generate-jwt-keys.mjs   # prints JWT_PRIVATE_KEY and JWKS for .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:8090](http://localhost:8090) (or the port shown in the terminal).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy variables from [`.env.example`](.env.example) into `.env.local`. Required for auth and evaluations:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_CONVEX_URL`
+- `JWT_PRIVATE_KEY` and `JWKS` (matching pair from the script above)
+- `SESSION_ISSUER` (e.g. `http://localhost:8090` in dev)
+- `XAI_API_KEY` (AI compiles the evaluation on Finish)
 
-## Learn More
+Run Convex in another terminal: `npx convex dev`.
 
-To learn more about Next.js, take a look at the following resources:
+## Production deployment (Vercel + Convex)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Set these on **Vercel** (production environment):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Requirement |
+|----------|-------------|
+| `JWT_PRIVATE_KEY` | RS256 private key; must match `JWKS` |
+| `JWKS` | Public JWKS JSON from the same keypair |
+| `SESSION_ISSUER` | Exact app URL, e.g. `https://employee-evals.vercel.app` (no trailing spaces) |
+| `NEXT_PUBLIC_CONVEX_URL` | Your Convex deployment URL |
+| `XAI_API_KEY` | Required for the evaluation wizard Finish step |
 
-## Deploy on Vercel
+Set on **Convex** for the same deployment:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Variable | Requirement |
+|----------|-------------|
+| `SESSION_ISSUER` | Same value as Vercel (`convex/auth.config.ts` uses this as OIDC issuer) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If session cookies were signed with old keys, users must sign in again at `/onboarding`.
+
+## Auth troubleshooting
+
+- **401 on `/api/auth/session` or `/api/auth/convex-token`**: Sign in again at `/onboarding`. Verify `JWT_PRIVATE_KEY` and `JWKS` are a matching pair.
+- **Finish spins then stops**: Session may have expired mid-eval; use the sign-in link on the error banner (`/onboarding?returnTo=...` returns you to the eval).
+- **Convex "Unauthenticated"**: Ensure `SESSION_ISSUER` matches on Vercel and Convex, and that `/.well-known/jwks.json` is reachable on your app URL.

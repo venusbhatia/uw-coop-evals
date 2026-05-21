@@ -1,20 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DEMO_EVALUATOR_EMAIL,
-  getEvaluatorEmail,
   isValid8090Email,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
-import { createServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
+import {
+  createServerSession,
+  fetchServerSessionEmail,
+  waitForConvexAuth,
+} from "@/lib/evaluatorApi";
 import { runSeedDemo } from "@/lib/seedDemo";
 
-export default function OnboardingPage() {
+function isSafeReturnTo(path: string): boolean {
+  return path.startsWith("/") && !path.startsWith("//");
+}
+
+function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnToParam = searchParams.get("returnTo")?.trim() ?? "";
+  const returnTo = isSafeReturnTo(returnToParam) ? returnToParam : "/";
+
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
 
   useEffect(() => {
@@ -22,13 +34,19 @@ export default function OnboardingPage() {
       try {
         const serverEmail = await fetchServerSessionEmail();
         if (serverEmail) {
-          router.replace("/");
+          router.replace(returnTo);
         }
       } catch {
         /* stay on onboarding */
       }
     })();
-  }, [router]);
+  }, [router, returnTo]);
+
+  const signIn = async (signedInEmail: string) => {
+    await createServerSession(signedInEmail);
+    setEvaluatorEmail(signedInEmail);
+    await waitForConvexAuth();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,12 +55,14 @@ export default function OnboardingPage() {
       setError("Enter your 8090 work email ending with @8090.inc");
       return;
     }
+    setLoading(true);
+    setError("");
     try {
-      await createServerSession(trimmed);
-      setEvaluatorEmail(trimmed);
-      router.replace("/");
+      await signIn(trimmed);
+      router.replace(returnTo);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not sign in.");
+      setLoading(false);
     }
   };
 
@@ -50,10 +70,9 @@ export default function OnboardingPage() {
     setError("");
     setLoadingDemo(true);
     try {
-      await createServerSession(DEMO_EVALUATOR_EMAIL);
-      setEvaluatorEmail(DEMO_EVALUATOR_EMAIL);
+      await signIn(DEMO_EVALUATOR_EMAIL);
       await runSeedDemo();
-      router.replace("/");
+      router.replace(returnTo);
     } catch (e: unknown) {
       const msg =
         e instanceof Error
@@ -63,6 +82,8 @@ export default function OnboardingPage() {
       setLoadingDemo(false);
     }
   };
+
+  const busy = loading || loadingDemo;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
@@ -104,10 +125,10 @@ export default function OnboardingPage() {
 
           <button
             type="submit"
-            disabled={loadingDemo}
+            disabled={busy}
             className="btn-primary w-full py-3 text-[15px] disabled:opacity-40"
           >
-            Continue
+            {loading ? "Signing in…" : "Continue"}
           </button>
         </form>
 
@@ -115,7 +136,7 @@ export default function OnboardingPage() {
           <button
             type="button"
             onClick={() => void handleSeeDemo()}
-            disabled={loadingDemo}
+            disabled={busy}
             className="btn-secondary w-full py-3 text-[15px] disabled:opacity-40"
           >
             {loadingDemo ? "Loading demo…" : "See demo"}
@@ -123,5 +144,19 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-[14px] text-[var(--muted)]">Loading…</p>
+        </div>
+      }
+    >
+      <OnboardingForm />
+    </Suspense>
   );
 }

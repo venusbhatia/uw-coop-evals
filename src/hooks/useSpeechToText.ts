@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 const MIN_BLOB_BYTES = 1000;
+export const WAVEFORM_BAR_COUNT = 16;
 
 function pickMimeType(): string | undefined {
   const candidates = [
@@ -42,9 +43,20 @@ function mapTranscribeError(status: number, body: { code?: string; error?: strin
   return msg;
 }
 
+export function formatVoiceDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+const IDLE_LEVELS = Array.from({ length: WAVEFORM_BAR_COUNT }, () => 0.35);
+
 export interface UseSpeechToTextReturn {
   isRecording: boolean;
   isTranscribing: boolean;
+  recordingElapsedMs: number;
+  audioLevels: number[];
   transcript: string;
   error: string | null;
   startRecording: () => Promise<void>;
@@ -56,14 +68,41 @@ export interface UseSpeechToTextReturn {
 export function useSpeechToText(): UseSpeechToTextReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
+  const [audioLevels, setAudioLevels] = useState<number[]>(IDLE_LEVELS);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStartedAtRef = useRef<number>(0);
+
+  const stopAudioAnalysis = useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (timerIntervalRef.current != null) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    analyserRef.current = null;
+    if (audioContextRef.current) {
+      void audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    setRecordingElapsedMs(0);
+    setAudioLevels(IDLE_LEVELS);
+  }, []);
 
   const stopMedia = useCallback(() => {
+    stopAudioAnalysis();
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       try {
         mediaRecorderRef.current.stop();
@@ -77,7 +116,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-  }, []);
+  }, [stopAudioAnalysis]);
 
   const cancelRecording = useCallback(() => {
     chunksRef.current = [];
@@ -97,6 +136,51 @@ export function useSpeechToText(): UseSpeechToTextReturn {
     setTranscript("");
     setError(null);
   }, [cancelRecording]);
+
+  const startAudioAnalysis = useCallback((stream: MediaStream) => {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const context = new AudioCtx();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.75;
+
+      const source = context.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      audioContextRef.current = context;
+      analyserRef.current = analyser;
+
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(frequencyData);
+
+        const sliceSize = Math.max(1, Math.floor(frequencyData.length / WAVEFORM_BAR_COUNT));
+        const levels = Array.from({ length: WAVEFORM_BAR_COUNT }, (_, index) => {
+          const start = index * sliceSize;
+          let sum = 0;
+          for (let i = start; i < start + sliceSize && i < frequencyData.length; i++) {
+            sum += frequencyData[i];
+          }
+          const average = sum / sliceSize;
+          return Math.min(1, Math.max(0.12, average / 128));
+        });
+
+        setAudioLevels(levels);
+        rafRef.current = requestAnimationFrame(tick);
+      };
+
+      rafRef.current = requestAnimationFrame(tick);
+    } catch {
+      /* waveform falls back to CSS animation in AudioWaveform */
+    }
+  }, []);
 
   const startRecording = useCallback(async () => {
     setError(null);
@@ -118,6 +202,13 @@ export function useSpeechToText(): UseSpeechToTextReturn {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
+      recordingStartedAtRef.current = Date.now();
+      setRecordingElapsedMs(0);
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingElapsedMs(Date.now() - recordingStartedAtRef.current);
+      }, 100);
+
+      startAudioAnalysis(stream);
       recorder.start(250);
       setIsRecording(true);
     } catch (err: unknown) {
@@ -127,17 +218,19 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       stopMedia();
       setIsRecording(false);
     }
-  }, [stopMedia]);
+  }, [startAudioAnalysis, stopMedia]);
 
   const stopRecording = useCallback(
     async (seedText = ""): Promise<string> => {
       const recorder = mediaRecorderRef.current;
 
       if (!recorder || recorder.state !== "recording") {
+        stopAudioAnalysis();
         setIsRecording(false);
         return mergeSeedAndTranscript(seedText, transcript);
       }
 
+      stopAudioAnalysis();
       setIsRecording(false);
 
       const blob = await new Promise<Blob>((resolve, reject) => {
@@ -201,12 +294,14 @@ export function useSpeechToText(): UseSpeechToTextReturn {
         setIsTranscribing(false);
       }
     },
-    [transcript],
+    [stopAudioAnalysis, transcript],
   );
 
   return {
     isRecording,
     isTranscribing,
+    recordingElapsedMs,
+    audioLevels,
     transcript,
     error,
     startRecording,
