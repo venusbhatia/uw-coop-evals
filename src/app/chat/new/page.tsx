@@ -10,7 +10,7 @@ import {
   formatEvaluationError,
   isEvaluationAuthError,
 } from "@/lib/evaluatorApi";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Download } from "lucide-react";
@@ -23,7 +23,6 @@ import {
 } from "@/lib/evaluationConfig";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { WizardProgress } from "@/components/evaluation/WizardProgress";
-import { ConvexAuthGate } from "@/components/ConvexAuthGate";
 import { VoiceAnswerField } from "@/components/voice/VoiceAnswerField";
 
 const MIN_ANSWER_LENGTH = 20;
@@ -94,6 +93,7 @@ function SimpleEvaluation() {
       : undefined;
   const signInHref = buildOnboardingUrl(returnTo);
 
+  const { isLoading: convexLoading, isAuthenticated } = useConvexAuth();
   const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [authBanner, setAuthBanner] = useState<string | null>(null);
@@ -354,10 +354,23 @@ function SimpleEvaluation() {
         !submitting &&
         !voiceBusy;
 
-  if (!sessionReady) {
+  if (!sessionReady || convexLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
-        <p className="text-[14px] text-[var(--muted)]">Loading…</p>
+        <p className="text-[14px] text-[var(--muted)]">Connecting…</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-8 text-center">
+        <p className="text-[14px] text-[var(--muted)]">
+          Session not connected to the database.
+        </p>
+        <Link href={signInHref} className="text-[14px] underline">
+          Sign in again
+        </Link>
       </div>
     );
   }
@@ -529,9 +542,7 @@ export default function EvaluationPage() {
         </div>
       }
     >
-      <ConvexAuthGate>
-        <SimpleEvaluation />
-      </ConvexAuthGate>
+      <SimpleEvaluation />
     </Suspense>
   );
 }

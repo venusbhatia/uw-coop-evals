@@ -15,16 +15,25 @@ function useSessionAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const refreshAuth = useCallback(async (forceRefreshToken: boolean) => {
-    const res = await fetch("/api/auth/convex-token", {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { token?: string };
-    const token = data.token ?? null;
-    setIsAuthenticated(Boolean(token));
-    setIsLoading(false);
-    return token;
+  const refreshAuth = useCallback(async (_forceRefreshToken: boolean) => {
+    try {
+      const res = await fetch("/api/auth/convex-token", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        setIsAuthenticated(false);
+        return null;
+      }
+      const data = (await res.json()) as { token?: string };
+      const token = data.token ?? null;
+      setIsAuthenticated(Boolean(token));
+      return token;
+    } catch {
+      setIsAuthenticated(false);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const fetchAccessToken = useCallback(
@@ -38,7 +47,7 @@ function useSessionAuth() {
     void refreshAuth(false);
 
     const onSessionUpdated = () => {
-      setIsLoading(true);
+      // Refresh token in the background — do not unmount the app with a full-screen loader.
       void refreshAuth(true);
     };
 

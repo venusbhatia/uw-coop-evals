@@ -54,27 +54,32 @@ export async function createServerSession(email: string): Promise<void> {
   notifySessionUpdated();
 }
 
+async function pollConvexToken(maxAttempts: number): Promise<boolean> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch("/api/auth/convex-token", { credentials: "include" });
+    if (res.ok) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
 /** Wait until Convex client can use the httpOnly session (after sign-in). */
 export async function waitForConvexAuth(maxAttempts = 40): Promise<void> {
   notifySessionUpdated();
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await fetch("/api/auth/convex-token", { credentials: "include" });
-    if (res.ok) {
-      notifySessionUpdated();
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  const ready = await pollConvexToken(maxAttempts);
+  if (!ready) {
+    throw new EvaluationAuthError(
+      AUTH_ERROR_CONVEX_AUTH_FAILED,
+      CONVEX_AUTH_FAILED_MESSAGE,
+    );
   }
 
-  throw new EvaluationAuthError(
-    AUTH_ERROR_CONVEX_AUTH_FAILED,
-    CONVEX_AUTH_FAILED_MESSAGE,
-  );
+  notifySessionUpdated();
+  await new Promise((resolve) => setTimeout(resolve, 80));
 }
 
-/** Verify httpOnly session and Convex token before evaluation actions. */
+/** Verify session + Convex token before evaluation actions (no UI-blocking broadcast). */
 export async function ensureEvaluationAuth(): Promise<string> {
   const email = await fetchServerSessionEmail();
   if (!email) {
@@ -84,12 +89,8 @@ export async function ensureEvaluationAuth(): Promise<string> {
     );
   }
 
-  try {
-    await waitForConvexAuth();
-  } catch (error: unknown) {
-    if (isEvaluationAuthError(error)) {
-      throw error;
-    }
+  const ready = await pollConvexToken(12);
+  if (!ready) {
     throw new EvaluationAuthError(
       AUTH_ERROR_CONVEX_AUTH_FAILED,
       CONVEX_AUTH_FAILED_MESSAGE,
