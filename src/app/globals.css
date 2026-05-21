@@ -107,8 +107,8 @@ body {
 }
 
 /* Voice input — monochrome only (uses existing theme tokens) */
-.voice-listening-panel {
-  animation: voice-panel-in 0.25s ease-out;
+.voice-listening-bar {
+  animation: voice-bar-in 0.2s ease-out;
 }
 
 .voice-listening-dot {
@@ -166,14 +166,14 @@ body {
   animation: voice-bar-pulse 1.1s ease-in-out infinite;
 }
 
-@keyframes voice-panel-in {
+@keyframes voice-bar-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: scaleX(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scaleX(1);
   }
 }
 
@@ -221,7 +221,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .voice-listening-panel,
+  .voice-listening-bar,
   .voice-listening-dot,
   .voice-textarea-active,
   .voice-shimmer-line,

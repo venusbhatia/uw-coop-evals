@@ -2,7 +2,7 @@
 
 import { Loader2, Mic, MicOff } from "lucide-react";
 import type { UseSpeechToTextReturn } from "@/hooks/useSpeechToText";
-import { VoiceListeningPanel } from "@/components/voice/VoiceListeningPanel";
+import { VoiceListeningBar } from "@/components/voice/VoiceListeningPanel";
 
 type VoiceAnswerFieldProps = {
   value: string;
@@ -67,35 +67,42 @@ export function VoiceAnswerField({
         )}
       </div>
 
-      {speech.isRecording && (
-        <VoiceListeningPanel
-          elapsedMs={speech.recordingElapsedMs}
-          audioLevels={speech.audioLevels}
-          onCancel={speech.cancelRecording}
-        />
-      )}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void onToggleMic()}
+            disabled={loading || speech.isTranscribing}
+            className={`p-3 rounded-full border border-[var(--border)] shrink-0 ${
+              speech.isRecording
+                ? "bg-[var(--foreground)] text-[var(--background)]"
+                : "hover:bg-[var(--surface)]"
+            }`}
+            aria-label={speech.isRecording ? "Stop recording" : "Record answer"}
+          >
+            {speech.isTranscribing ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : speech.isRecording ? (
+              <MicOff className="w-5 h-5" />
+            ) : (
+              <Mic className="w-5 h-5" />
+            )}
+          </button>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => void onToggleMic()}
-          disabled={loading || speech.isTranscribing}
-          className={`p-3 rounded-full border border-[var(--border)] shrink-0 ${
-            speech.isRecording
-              ? "bg-[var(--foreground)] text-[var(--background)]"
-              : "hover:bg-[var(--surface)]"
-          }`}
-          aria-label={speech.isRecording ? "Stop recording" : "Record answer"}
-        >
-          {speech.isTranscribing ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : speech.isRecording ? (
-            <MicOff className="w-5 h-5" />
+          {speech.isRecording ? (
+            <VoiceListeningBar
+              elapsedMs={speech.recordingElapsedMs}
+              audioLevels={speech.audioLevels}
+              onCancel={speech.cancelRecording}
+            />
           ) : (
-            <Mic className="w-5 h-5" />
+            <p className="text-[12px] text-[var(--muted)]">{helperText}</p>
           )}
-        </button>
-        <p className="text-[12px] text-[var(--muted)]">{helperText}</p>
+        </div>
+
+        {speech.isRecording && (
+          <p className="text-[11px] text-[var(--muted)] pl-[52px]">{helperText}</p>
+        )}
       </div>
 
       {speech.error && (
