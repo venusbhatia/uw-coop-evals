@@ -1,4 +1,5 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { ensureUser, getUserRole, type UserRole } from "../users";
 
 export function resolveEvaluatorEmail(identity: {
   email?: string | null;
@@ -18,21 +19,57 @@ export function resolveEvaluatorEmail(identity: {
   return raw.trim().toLowerCase();
 }
 
-export async function requireAuth(ctx: QueryCtx | MutationCtx): Promise<{ email: string }> {
+export async function requireAuth(
+  ctx: QueryCtx | MutationCtx,
+): Promise<{ email: string; role: UserRole }> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Unauthenticated");
   }
 
   const email = resolveEvaluatorEmail(identity);
-  if (!email.endsWith("@8090.inc")) {
+  if (!email.includes("@")) {
     throw new Error("Forbidden");
   }
 
-  return { email };
+  const role = await getUserRole(ctx, email);
+  return { email, role };
 }
 
-/** Any signed-in @8090.inc user may reload demo data. */
+export async function requireAuthMutation(
+  ctx: MutationCtx,
+): Promise<{ email: string; role: UserRole }> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthenticated");
+  }
+
+  const email = resolveEvaluatorEmail(identity);
+  if (!email.includes("@")) {
+    throw new Error("Forbidden");
+  }
+
+  const role = await ensureUser(ctx, email);
+  return { email, role };
+}
+
+export async function requireRole(
+  ctx: QueryCtx | MutationCtx,
+  allowed: UserRole[],
+): Promise<{ email: string; role: UserRole }> {
+  const auth = await requireAuth(ctx);
+  if (!allowed.includes(auth.role)) {
+    throw new Error("Forbidden: insufficient role");
+  }
+  return auth;
+}
+
 export async function requireSeedDemoAuth(ctx: MutationCtx): Promise<{ email: string }> {
-  return requireAuth(ctx);
+  const allow =
+    process.env.ALLOW_SEED_DEMO === "true" || process.env.ALLOW_SEED_DEMO === "1";
+  if (!allow) {
+    throw new Error("Demo seed is disabled. Set ALLOW_SEED_DEMO=true to enable.");
+  }
+  const auth = await requireAuthMutation(ctx);
+  return { email: auth.email };
 }

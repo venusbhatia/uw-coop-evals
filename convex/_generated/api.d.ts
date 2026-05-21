@@ -9,9 +9,12 @@
  */
 
 import type * as evaluations from "../evaluations.js";
+import type * as lib_evaluationFields from "../lib/evaluationFields.js";
 import type * as lib_requireAuth from "../lib/requireAuth.js";
+import type * as lib_workflow from "../lib/workflow.js";
 import type * as seedData from "../seedData.js";
 import type * as students from "../students.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -21,9 +24,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   evaluations: typeof evaluations;
+  "lib/evaluationFields": typeof lib_evaluationFields;
   "lib/requireAuth": typeof lib_requireAuth;
+  "lib/workflow": typeof lib_workflow;
   seedData: typeof seedData;
   students: typeof students;
+  users: typeof users;
 }>;
 
 /**

@@ -11,34 +11,13 @@ import {
   ArrowLeft, FileText, Download, ShieldAlert, Sparkles, 
   Check, Lock, Edit3, UserCheck, CheckSquare, Square, FileJson
 } from "lucide-react";
-import { downloadJsonFile } from "@/lib/waterlooFormExport";
-import { FUTURE_READY_COMPETENCIES, SDG_LIST } from "@/lib/evaluationConfig";
-
-const COMPETENCY_LABELS: { [key: string]: { label: string; cat: string } } = {
-  learnJobDuties: { label: "Learn job duties and work processes", cat: "Expand & Transfer Expertise" },
-  locateInfo: { label: "Locate, evaluate, and use information effectively", cat: "Expand & Transfer Expertise" },
-  drawConclusions: { label: "Draw reasoned conclusions from multiple sources", cat: "Expand & Transfer Expertise" },
-  employTechSkills: { label: "Learn and employ technical skills necessary for the role", cat: "Expand & Transfer Expertise" },
-  applyPriorKnowledge: { label: "Apply skills and prior knowledge from academic program/past work", cat: "Expand & Transfer Expertise" },
-  
-  deliverQualityWork: { label: "Deliver quality work", cat: "Design & Deliver Solutions" },
-  meetDeadlines: { label: "Meet deadlines and cope with workplace pressures", cat: "Design & Deliver Solutions" },
-  analyzeProblems: { label: "Analyze problems and evaluate alternative solutions", cat: "Design & Deliver Solutions" },
-  engageWithCuriosity: { label: "Engage in work with curiosity; ask clarifying questions", cat: "Design & Deliver Solutions" },
-  identifyImprovements: { label: "Identify opportunities for improvement within team/org", cat: "Design & Deliver Solutions" },
-  
-  adaptToChange: { label: "Adapt to changing priorities and circumstances", cat: "Develop Self" },
-  recognizeLimits: { label: "Recognize limits of knowledge, skills, and abilities", cat: "Develop Self" },
-  respondToFeedback: { label: "Respond well to direction and incorporate feedback", cat: "Develop Self" },
-  seekTasks: { label: "Seek new tasks and responsibilities", cat: "Develop Self" },
-  seekOpportunitiesToLearn: { label: "Seek opportunities to learn", cat: "Develop Self" },
-  
-  writeClearly: { label: "Write clearly and effectively", cat: "Build Relationships" },
-  orallyConveyIdeas: { label: "Orally convey ideas and information clearly", cat: "Build Relationships" },
-  collaborateWell: { label: "Collaborate well with co-workers and supervisor/leaders", cat: "Build Relationships" },
-  ethicalConduct: { label: "Demonstrate ethical conduct in the workplace", cat: "Build Relationships" },
-  showSensitivity: { label: "Show sensitivity to needs and differences of others", cat: "Build Relationships" }
-};
+import { downloadJsonFile } from "@/lib/speFormExport";
+import { COMPETENCY_LABELS, FUTURE_READY_COMPETENCIES, SDG_LIST } from "@/lib/evaluationConfig";
+import {
+  canExportStatus,
+  canEditForm,
+  workflowStatusLabel,
+} from "@/lib/workflowLabels";
 
 function evaluatorLabel(email: string): string {
   return email.split("@")[0] || email;
@@ -57,6 +36,7 @@ export default function StudentDetailPage() {
   const [saving, setSaving] = useState(false);
   const [signingOff, setSigningOff] = useState(false);
   const [evaluatorEmail, setEvaluatorEmail] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -94,15 +74,21 @@ export default function StudentDetailPage() {
       ? `/chat/new?studentId=${student._id}&evaluator=${encodeURIComponent(evaluatorEmail)}&type=${evalType}`
       : "#";
 
-  const isCompleted = evalType === "midterm" 
-    ? student?.midtermStatus === "completed" 
-    : student?.finalStatus === "completed";
+  const termStatus =
+    evalType === "midterm" ? student?.midtermStatus : student?.finalStatus;
+  const isFinalized = termStatus ? canExportStatus(termStatus) : false;
+  const showReconcile =
+    termStatus === "ready_reconcile" && drafts.length >= 2;
+  const formHref = student
+    ? `/student/${student._id}/form?type=${evalType}`
+    : "#";
+  const latestRevision = reconciled?.revisionHistory?.slice(-1)[0];
 
   // Pre-populate reconciliation draft from database or calculate default consensus
   useEffect(() => {
     if (reconciled) {
       setReconciledDraft({ ...reconciled });
-    } else if (drafts.length > 0) {
+    } else if (drafts.length >= 2) {
       // Build a default consensus based on Evaluator 1 (or average of E1 & E2)
       const d1 = drafts[0];
       const d2 = drafts[1] || d1;
@@ -181,9 +167,12 @@ export default function StudentDetailPage() {
         type: evalType,
         ...reconciledDraft,
       });
-      alert("Consensus evaluation saved successfully!");
-    } catch (e: any) {
-      alert("Save failed: " + e.message);
+      setBanner({ type: "ok", text: "Consensus evaluation saved." });
+    } catch (e: unknown) {
+      setBanner({
+        type: "err",
+        text: e instanceof Error ? e.message : "Save failed.",
+      });
     } finally {
       setSaving(false);
     }
@@ -203,18 +192,20 @@ export default function StudentDetailPage() {
       await signOffEvaluation({
         studentId: student._id,
         type: evalType,
-        evaluatorName: evaluatorEmail ?? ""
       });
-      alert("Evaluation signed off and locked!");
-    } catch (e: any) {
-      alert("Sign-off failed: " + e.message);
+      setBanner({ type: "ok", text: "Sign-off recorded." });
+    } catch (e: unknown) {
+      setBanner({
+        type: "err",
+        text: e instanceof Error ? e.message : "Sign-off failed.",
+      });
     } finally {
       setSigningOff(false);
     }
   };
 
   const handleRatingChange = (key: string, value: number) => {
-    if (isCompleted || !reconciledDraft) return;
+    if (isFinalized || !reconciledDraft) return;
     setReconciledDraft({
       ...reconciledDraft,
       ratings: {
@@ -225,7 +216,7 @@ export default function StudentDetailPage() {
   };
 
   const toggleSdg = (sdgNum: number) => {
-    if (isCompleted || !reconciledDraft) return;
+    if (isFinalized || !reconciledDraft) return;
     const current = reconciledDraft.sdgs || [];
     const next = current.includes(sdgNum)
       ? current.filter((n: number) => n !== sdgNum)
@@ -234,7 +225,7 @@ export default function StudentDetailPage() {
   };
 
   const toggleStrength = (name: string) => {
-    if (isCompleted || !reconciledDraft) return;
+    if (isFinalized || !reconciledDraft) return;
     const current = reconciledDraft.strengths.selections || [];
     const next = current.includes(name)
       ? current.filter((s: string) => s !== name)
@@ -252,21 +243,21 @@ export default function StudentDetailPage() {
         studentId: student._id,
         type: evalType,
       });
-      const res = await fetch(`/api/evaluations/waterloo-json?${params.toString()}`);
+      const res = await fetch(`/api/evaluations/spe-json?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
         alert((data.error as string) ?? "Export failed.");
         return;
       }
       const safeName = student.name.replace(/\s+/g, "-").toLowerCase();
-      downloadJsonFile(data, `${safeName}-${evalType}-waterloo-spe.json`);
+      downloadJsonFile(data, `${safeName}-${evalType}-spe-export.json`);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Export failed.");
     }
   };
 
   const toggleDevelopment = (name: string) => {
-    if (isCompleted || !reconciledDraft) return;
+    if (isFinalized || !reconciledDraft) return;
     const current = reconciledDraft.developments.selections || [];
     const next = current.includes(name)
       ? current.filter((s: string) => s !== name)
@@ -326,7 +317,7 @@ export default function StudentDetailPage() {
             </button>
           </div>
 
-          {(reconciled || drafts.length > 0) && (
+          {isFinalized && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -358,38 +349,45 @@ export default function StudentDetailPage() {
             <h3 className="text-[12px] text-[var(--muted)] uppercase tracking-wide mb-4">Status</h3>
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs text-slate-400">Current Phase:</span>
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                isCompleted 
-                  ? "bg-emerald-950/40 border border-emerald-900/40 text-emerald-400" 
-                  : drafts.length >= 2 
-                    ? "bg-amber-950/40 border border-amber-900/40 text-amber-500"
-                    : drafts.length === 1 
-                      ? "bg-indigo-950/40 border border-indigo-900/40 text-indigo-400"
-                      : "bg-slate-900 border border-slate-800 text-slate-500"
-              }`}>
-                {isCompleted 
-                  ? "Completed & Locked" 
-                  : drafts.length >= 2 
-                    ? "Ready to Reconcile" 
-                    : drafts.length === 1 
-                      ? "Drafting (1/2 Done)" 
-                      : "Not Started"}
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[var(--surface)] border border-[var(--border)]">
+                {termStatus ? workflowStatusLabel(termStatus) : "—"}
               </span>
             </div>
 
-            {isCompleted && reconciled && (
+            {banner && (
+              <p
+                className={`text-xs rounded-lg p-3 mb-4 ${
+                  banner.type === "ok"
+                    ? "bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-300"
+                    : "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300"
+                }`}
+              >
+                {banner.text}
+              </p>
+            )}
+
+            {termStatus === "returned" && latestRevision && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 p-3 rounded-lg text-xs mb-4">
+                <p className="font-semibold">Returned for revision ({latestRevision.fromRole})</p>
+                <p className="mt-1 text-[var(--muted)]">{latestRevision.comments}</p>
+              </div>
+            )}
+
+            {isFinalized && reconciled && (
               <div className="bg-emerald-950/20 border border-emerald-900/30 p-3 rounded-lg flex items-start gap-2.5 mb-4">
                 <Lock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                 <div className="text-xs text-emerald-300">
-                  This evaluation is locked. Signed off by:
-                  <div className="font-semibold mt-1 text-slate-200">
-                    {reconciled.signOffs.join(", ")}
-                  </div>
+                  Finalized — ready for official form export.
+                  {reconciled.signOffs.length > 0 && (
+                    <div className="font-semibold mt-1 text-slate-200">
+                      Signed off: {reconciled.signOffs.join(", ")}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {drafts.length >= 2 && !isCompleted && (
+            {showReconcile && !isFinalized && (
               <div className="bg-amber-950/20 border border-amber-900/30 p-3 rounded-lg flex items-start gap-2.5 mb-4">
                 <ShieldAlert className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5 animate-pulse" />
                 <div className="text-xs text-amber-300">
@@ -416,16 +414,27 @@ export default function StudentDetailPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <span className="text-xs text-[var(--muted)]">
-                      5 quick questions · ~5 min
-                    </span>
                     <Link
-                      href={evalChatHref}
+                      href={formHref}
                       className="w-full text-center py-2 rounded-full btn-primary text-[13px] font-medium"
                     >
-                      Start evaluation
+                      Open evaluation form
+                    </Link>
+                    <Link
+                      href={evalChatHref}
+                      className="w-full text-center py-2 rounded-full border border-[var(--border)] text-[13px]"
+                    >
+                      Optional: AI assistant
                     </Link>
                   </div>
+                )}
+                {myDraft && canEditForm(termStatus ?? "", reconciled?.workflowStatus) && (
+                  <Link
+                    href={formHref}
+                    className="mt-3 block text-center text-[13px] underline text-[var(--muted)]"
+                  >
+                    Review in full form
+                  </Link>
                 )}
               </div>
             ) : (
@@ -450,7 +459,7 @@ export default function StudentDetailPage() {
             )}
           </div>
 
-          {!isCompleted && reconciledDraft && evaluatorEmail && (
+          {showReconcile && !isFinalized && reconciledDraft && evaluatorEmail && (
             <div className="panel p-6">
               <h3 className="text-[12px] text-[var(--muted)] uppercase tracking-wide mb-3">
                 Sign-off
@@ -472,7 +481,7 @@ export default function StudentDetailPage() {
                 <p className="text-xs text-slate-400">Review evaluations side-by-side. Save and sign off once finalized.</p>
               </div>
               
-              {!isCompleted && reconciledDraft && (
+              {showReconcile && !isFinalized && reconciledDraft && (
                 <div className="flex gap-2">
                   <button
                     onClick={handleSaveConsensus}
@@ -531,7 +540,7 @@ export default function StudentDetailPage() {
                         <div 
                           key={key} 
                           className={`grid grid-cols-12 py-3 px-4 items-center text-xs transition-colors ${
-                            isConflict && !isCompleted ? "bg-rose-950/20 hover:bg-rose-950/30" : "hover:bg-slate-900/10"
+                            isConflict && !isFinalized ? "bg-rose-950/20 hover:bg-rose-950/30" : "hover:bg-slate-900/10"
                           }`}
                         >
                           <div className="col-span-6 pr-4">
@@ -548,7 +557,7 @@ export default function StudentDetailPage() {
                           </div>
                           
                           <div className="col-span-2 flex justify-center">
-                            {isCompleted ? (
+                            {isFinalized ? (
                               <span className="font-bold text-indigo-400">{valConsensus === 0 ? "N/O" : valConsensus}</span>
                             ) : (
                               <select
@@ -584,7 +593,7 @@ export default function StudentDetailPage() {
                           <button
                             key={comp}
                             onClick={() => toggleStrength(comp)}
-                            disabled={isCompleted}
+                            disabled={isFinalized}
                             className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all cursor-pointer ${
                               isSelected 
                                 ? "bg-emerald-500 text-emerald-950 font-bold" 
@@ -603,7 +612,7 @@ export default function StudentDetailPage() {
                         ...reconciledDraft,
                         strengths: { ...reconciledDraft.strengths, comments: e.target.value }
                       })}
-                      readOnly={isCompleted}
+                      readOnly={isFinalized}
                       rows={3}
                       className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:outline-none"
                     />
@@ -619,7 +628,7 @@ export default function StudentDetailPage() {
                           <button
                             key={comp}
                             onClick={() => toggleDevelopment(comp)}
-                            disabled={isCompleted}
+                            disabled={isFinalized}
                             className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all cursor-pointer ${
                               isSelected 
                                 ? "bg-amber-500 text-amber-950 font-bold" 
@@ -638,7 +647,7 @@ export default function StudentDetailPage() {
                         ...reconciledDraft,
                         developments: { ...reconciledDraft.developments, comments: e.target.value }
                       })}
-                      readOnly={isCompleted}
+                      readOnly={isFinalized}
                       rows={3}
                       className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:outline-none"
                     />
@@ -656,7 +665,7 @@ export default function StudentDetailPage() {
                         <button
                           key={sdgName}
                           onClick={() => toggleSdg(num)}
-                          disabled={isCompleted}
+                          disabled={isFinalized}
                           className="flex items-center gap-2 p-1.5 rounded bg-slate-900 hover:bg-slate-850/60 text-left border border-slate-800 transition-all cursor-pointer"
                         >
                           {isSelected ? (
@@ -675,7 +684,7 @@ export default function StudentDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">Overall Performance Rating</label>
-                    {isCompleted ? (
+                    {isFinalized ? (
                       <div className="py-2 text-sm font-bold text-indigo-400 uppercase">{reconciledDraft.overallRating}</div>
                     ) : (
                       <select
@@ -699,7 +708,7 @@ export default function StudentDetailPage() {
                     <textarea
                       value={reconciledDraft.outstandingComments}
                       onChange={(e) => setReconciledDraft({ ...reconciledDraft, outstandingComments: e.target.value })}
-                      readOnly={isCompleted}
+                      readOnly={isFinalized}
                       rows={2}
                       className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none"
                       placeholder="Detail outstanding contributions..."
@@ -714,7 +723,7 @@ export default function StudentDetailPage() {
                     <textarea
                       value={reconciledDraft.overallComments}
                       onChange={(e) => setReconciledDraft({ ...reconciledDraft, overallComments: e.target.value })}
-                      readOnly={isCompleted}
+                      readOnly={isFinalized}
                       rows={3}
                       className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none"
                     />
@@ -725,7 +734,7 @@ export default function StudentDetailPage() {
                     <textarea
                       value={reconciledDraft.recommendations}
                       onChange={(e) => setReconciledDraft({ ...reconciledDraft, recommendations: e.target.value })}
-                      readOnly={isCompleted}
+                      readOnly={isFinalized}
                       rows={2}
                       className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none"
                     />
@@ -739,7 +748,7 @@ export default function StudentDetailPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
                     <div>
                       <label className="block text-[9px] uppercase font-bold text-slate-500 mb-1.5">Return Student?</label>
-                      {isCompleted ? (
+                      {isFinalized ? (
                         <div className="font-semibold text-slate-200 uppercase">{reconciledDraft.futureEmployment.returnTerm}</div>
                       ) : (
                         <select
@@ -759,7 +768,7 @@ export default function StudentDetailPage() {
 
                     <div>
                       <label className="block text-[9px] uppercase font-bold text-slate-500 mb-1.5">Offered Re-employment?</label>
-                      {isCompleted ? (
+                      {isFinalized ? (
                         <div className="font-semibold text-slate-200 uppercase">{reconciledDraft.futureEmployment.offeredReemployment}</div>
                       ) : (
                         <select
@@ -779,7 +788,7 @@ export default function StudentDetailPage() {
 
                     <div>
                       <label className="block text-[9px] uppercase font-bold text-slate-500 mb-1.5">Student Response</label>
-                      {isCompleted ? (
+                      {isFinalized ? (
                         <div className="font-semibold text-slate-200 uppercase">{reconciledDraft.futureEmployment.response}</div>
                       ) : (
                         <select

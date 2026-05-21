@@ -8,7 +8,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
   sessionIssuer,
 } from "@/lib/sessionConstants";
-import { isValid8090Email } from "@/lib/evaluatorSession";
+import { isValidSignInEmail } from "@/lib/evaluatorSession";
 
 export type SessionPayload = {
   email: string;
@@ -20,7 +20,7 @@ function normalizeEmail(email: string): string {
 
 export async function createSessionToken(email: string): Promise<string> {
   const normalized = normalizeEmail(email);
-  if (!isValid8090Email(normalized)) {
+  if (!isValidSignInEmail(normalized)) {
     throw new Error("Invalid evaluator email.");
   }
 
@@ -37,7 +37,7 @@ export async function createSessionToken(email: string): Promise<string> {
 
 export async function createConvexToken(email: string): Promise<string> {
   const normalized = normalizeEmail(email);
-  if (!isValid8090Email(normalized)) {
+  if (!isValidSignInEmail(normalized)) {
     throw new Error("Invalid evaluator email.");
   }
 
@@ -62,7 +62,7 @@ export async function verifySessionToken(
       audience: SESSION_APPLICATION_ID,
     });
     const email = extractEmail(payload);
-    if (!email || !isValid8090Email(email)) return null;
+    if (!email || !isValidSignInEmail(email)) return null;
     return { email: normalizeEmail(email) };
   } catch {
     return null;

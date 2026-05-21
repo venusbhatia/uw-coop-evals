@@ -3,10 +3,10 @@ import {
   buildSimpleEvaluationPrompt,
   SIMPLE_EVALUATION_QUESTION_COUNT,
   SUBMIT_EVALUATION_TOOL,
-  type DraftPayload,
 } from "@/lib/evaluationConfig";
 import { validateChatMessages } from "@/lib/chatMessages";
 import { isSessionPayload, requireApiSession } from "@/lib/apiAuth";
+import { validateDraftPayload } from "@/lib/evaluationValidation";
 
 const XAI_API_URL = "https://api.x.ai/v1/chat/completions";
 const XAI_MODELS = ["grok-3", "grok-2-1212", "grok-2-latest"];
@@ -132,9 +132,24 @@ export async function POST(request: Request) {
       );
 
       if (submitCall?.function?.arguments) {
-        const draftPayload = JSON.parse(
-          submitCall.function.arguments,
-        ) as DraftPayload;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(submitCall.function.arguments);
+        } catch {
+          return NextResponse.json(
+            { error: "AI returned invalid evaluation JSON.", code: "INVALID_DRAFT" },
+            { status: 400 },
+          );
+        }
+
+        const validated = validateDraftPayload(parsed);
+        if (!validated.ok) {
+          return NextResponse.json(
+            { error: validated.error, code: "INVALID_DRAFT" },
+            { status: 400 },
+          );
+        }
+        const draftPayload = validated.data;
 
         const closing =
           typeof message.content === "string" && message.content.trim()

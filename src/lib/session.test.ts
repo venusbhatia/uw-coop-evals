@@ -10,7 +10,6 @@ describe("session tokens", () => {
   const previousKey = process.env.JWT_PRIVATE_KEY;
   const previousJwks = process.env.JWKS;
   const previousIssuer = process.env.SESSION_ISSUER;
-
   beforeEach(() => {
     process.env.JWT_PRIVATE_KEY = TEST_PRIVATE_KEY;
     process.env.JWKS = TEST_JWKS;
@@ -23,13 +22,13 @@ describe("session tokens", () => {
     process.env.SESSION_ISSUER = previousIssuer;
   });
 
-  it("signs and verifies a session", async () => {
-    const token = await createSessionToken("supervisor@8090.inc");
+  it("signs and verifies a session for gmail", async () => {
+    const token = await createSessionToken("user@gmail.com");
     const payload = await verifySessionToken(token);
-    expect(payload?.email).toBe("supervisor@8090.inc");
+    expect(payload?.email).toBe("user@gmail.com");
   });
 
   it("rejects invalid emails at sign time", async () => {
-    await expect(createSessionToken("bad@gmail.com")).rejects.toThrow();
+    await expect(createSessionToken("not-an-email")).rejects.toThrow();
   });
 });

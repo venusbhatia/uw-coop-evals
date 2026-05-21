@@ -72,7 +72,7 @@ export async function generateEvaluationPdf(data: any) {
 
   // Student Details
   p1.drawText(student.name || "", { x: 130, y: 593, size: 10, font });
-  p1.drawText("University of Waterloo", { x: 570, y: 593, size: 10, font });
+  p1.drawText("Student Performance Evaluation", { x: 520, y: 593, size: 10, font });
   p1.drawText(student.studentId || "", { x: 110, y: 562, size: 10, font });
   p1.drawText(student.jobTitle || "", { x: 495, y: 562, size: 10, font });
 

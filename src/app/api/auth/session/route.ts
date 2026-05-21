@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isValid8090Email } from "@/lib/evaluatorSession";
+import { isValidSignInEmail } from "@/lib/evaluatorSession";
 import {
   createSessionToken,
   getSessionFromCookieStore,
@@ -28,9 +28,9 @@ export async function POST(request: Request) {
     const body = (await request.json()) as { email?: string };
     const email = body.email?.trim() ?? "";
 
-    if (!isValid8090Email(email)) {
+    if (!isValidSignInEmail(email)) {
       return NextResponse.json(
-        { error: "Invalid work email.", code: "INVALID_EMAIL" },
+        { error: "Invalid email address.", code: "INVALID_EMAIL" },
         { status: 400 },
       );
     }

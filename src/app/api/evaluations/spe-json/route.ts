@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { buildWaterlooSpeExport } from "@/lib/waterlooFormExport";
+import { buildSpeExport } from "@/lib/speFormExport";
 import {
   convexTokenForSession,
   isSessionPayload,
@@ -47,17 +47,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Student not found." }, { status: 404 });
     }
 
-    const { student, drafts, reconciled } = studentData;
+    const { student, reconciled } = studentData;
     const reconciledRow = reconciled?.find((r) => r.type === evalType);
-    const typeDrafts = drafts?.filter((d) => d.type === evalType) ?? [];
-    const evaluatorEmail = sessionOrResponse.email;
-    let draftRow = typeDrafts.find((d) => d.evaluatorName === evaluatorEmail);
-    if (!draftRow && typeDrafts.length > 0) {
-      draftRow = typeDrafts[typeDrafts.length - 1];
+
+    const termStatus =
+      evalType === "midterm" ? student.midtermStatus : student.finalStatus;
+    const exportAllowed =
+      termStatus === "finalized" ||
+      termStatus === "completed" ||
+      reconciledRow?.workflowStatus === "finalized";
+
+    if (!exportAllowed || !reconciledRow) {
+      return NextResponse.json(
+        {
+          error:
+            "Evaluation is not finalized. Complete HR/VP review before exporting.",
+        },
+        { status: 403 },
+      );
     }
 
-    const evaluation = reconciledRow ?? draftRow;
-    const sourceType: "reconciled" | "draft" = reconciledRow ? "reconciled" : "draft";
+    const evaluation = reconciledRow;
+    const sourceType = "reconciled" as const;
 
     if (!evaluation) {
       return NextResponse.json(
@@ -66,7 +77,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const payload = buildWaterlooSpeExport({
+    const payload = buildSpeExport({
       student,
       evaluation,
       sourceType,

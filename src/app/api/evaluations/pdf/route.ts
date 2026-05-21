@@ -41,17 +41,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
-    let evaluation = student.reconciled.find((r) => r.type === type);
+    const termStatus =
+      type === "midterm"
+        ? student.student.midtermStatus
+        : student.student.finalStatus;
+    const exportAllowed =
+      termStatus === "finalized" || termStatus === "completed";
 
-    if (!evaluation) {
-      const draft = student.drafts.find((d) => d.type === type && d.status === "completed");
-      if (!draft) {
-        return NextResponse.json(
-          { error: "No completed evaluation or reconciliation found for this student" },
-          { status: 404 },
-        );
-      }
-      evaluation = draft as unknown as (typeof student.reconciled)[number];
+    const evaluation = student.reconciled.find((r) => r.type === type);
+
+    if (!exportAllowed || !evaluation) {
+      return NextResponse.json(
+        {
+          error:
+            "Evaluation is not finalized. Complete HR/VP review before exporting PDF.",
+        },
+        { status: 403 },
+      );
     }
 
     const pdfBytes = await generateEvaluationPdf({

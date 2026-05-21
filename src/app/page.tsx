@@ -13,6 +13,7 @@ import {
 import { destroyServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
 import { runSeedDemo } from "@/lib/seedDemo";
 import { ConvexAuthGate } from "@/components/ConvexAuthGate";
+import { workflowStatusLabel } from "@/lib/workflowLabels";
 import {
   TEAM_OPTIONS,
   TERM_OPTIONS,
@@ -192,6 +193,7 @@ function DashboardContent({
   setStatusFilter: (v: string) => void;
 }) {
   const students = useQuery(api.students.list);
+  const me = useQuery(api.users.getMe);
 
   const years = yearOptions();
 
@@ -205,14 +207,21 @@ function DashboardContent({
       const matchesTerm = termFilter === "all" || student.term === termFilter;
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "completed" &&
-          (student.midtermStatus === "completed" ||
+        (statusFilter === "finalized" &&
+          (student.midtermStatus === "finalized" ||
+            student.finalStatus === "finalized" ||
+            student.midtermStatus === "completed" ||
             student.finalStatus === "completed")) ||
+        (statusFilter === "pending_hr" &&
+          (student.midtermStatus === "pending_hr" ||
+            student.finalStatus === "pending_hr")) ||
         (statusFilter === "ready_reconcile" &&
           (student.midtermStatus === "ready_reconcile" ||
             student.finalStatus === "ready_reconcile")) ||
-        (statusFilter === "drafting" &&
-          (student.midtermStatus === "drafting" ||
+        (statusFilter === "in_progress" &&
+          (student.midtermStatus === "in_progress" ||
+            student.finalStatus === "in_progress" ||
+            student.midtermStatus === "drafting" ||
             student.finalStatus === "drafting")) ||
         (statusFilter === "not_started" &&
           student.midtermStatus === "not_started" &&
@@ -224,9 +233,9 @@ function DashboardContent({
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-[var(--border)] px-6 py-5 flex items-center justify-between max-w-5xl mx-auto w-full gap-4">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Employee Evals</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight">Evals.com</h1>
           <p className="text-[13px] text-[var(--muted)] mt-0.5">
-            Performance evaluations
+            Thoughtful co-op and work-term evaluations
           </p>
           {evaluatorEmail && (
             <p className="text-[12px] text-[var(--muted)] mt-1">
@@ -242,6 +251,14 @@ function DashboardContent({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {(me?.role === "hr" || me?.role === "vp") && (
+            <Link
+              href="/reviews"
+              className="btn-secondary px-4 py-2 text-[13px]"
+            >
+              Review queue
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => void handleSeed()}
@@ -293,9 +310,10 @@ function DashboardContent({
           >
             <option value="all">All statuses</option>
             <option value="not_started">Not started</option>
-            <option value="drafting">Drafting</option>
+            <option value="in_progress">In progress</option>
             <option value="ready_reconcile">Reconcile</option>
-            <option value="completed">Completed</option>
+            <option value="pending_hr">Pending HR</option>
+            <option value="finalized">Finalized</option>
           </select>
         </div>
 
@@ -477,19 +495,10 @@ function DashboardContent({
 }
 
 function StatusBadge({ status }: { status?: string }) {
-  const label =
-    status === "completed"
-      ? "Completed"
-      : status === "ready_reconcile"
-        ? "Reconcile"
-        : status === "drafting"
-          ? "Drafting"
-          : "Not started";
+  const label = status ? workflowStatusLabel(status) : "Not started";
 
   const active =
-    status === "completed" ||
-    status === "ready_reconcile" ||
-    status === "drafting";
+    status !== "not_started" && status !== undefined;
 
   return (
     <span className={`badge ${active ? "badge-active" : ""}`}>{label}</span>

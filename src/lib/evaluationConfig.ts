@@ -44,7 +44,7 @@ export function buildSimpleEvaluationPrompt(
   const nextQuestion = userAnswerCount + 1;
   const mustSubmit = userAnswerCount >= SIMPLE_EVALUATION_QUESTION_COUNT;
 
-  return `You help supervisors complete a University of Waterloo co-op ${evalType} evaluation through exactly ${SIMPLE_EVALUATION_QUESTION_COUNT} simple questions.
+  return `You help supervisors complete a co-op ${evalType} performance evaluation through exactly ${SIMPLE_EVALUATION_QUESTION_COUNT} simple questions.
 
 Student: ${studentName}
 Supervisor: ${evaluatorName}

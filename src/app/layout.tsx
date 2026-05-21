@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Employee Evals",
+  title: "Evals.com",
   description:
-    "Employee Evals — simple guided performance evaluations for co-op and work terms.",
+    "Evals.com — thoughtful performance evaluations for co-op and work-term students.",
 };
 
 export default function RootLayout({

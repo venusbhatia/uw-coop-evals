@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       fetchedData = await response.json();
       statusBox.className = "status success";
-      statusBox.textContent = `Found completed draft! Ready to auto-fill.`;
+      statusBox.textContent = `Found finalized evaluation. Ready to auto-fill.`;
       fillBtn.disabled = false;
     } catch (err) {
       statusBox.className = "status error";
@@ -103,9 +103,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      const evalPayload = fetchedData.evaluation ?? fetchedData;
       chrome.tabs.sendMessage(tabs[0].id, {
         action: "fillForm",
-        data: fetchedData
+        data: evalPayload
       }, (response) => {
         fillBtn.disabled = false;
         

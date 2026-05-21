@@ -15,7 +15,7 @@ type WindowConfig = {
 
 const DEFAULT_LIMITS: Record<RateLimitGroup, WindowConfig> = {
   chat: { requests: 150, windowSeconds: 3600 },
-  transcribe: { requests: Number.MAX_SAFE_INTEGER, windowSeconds: 3600 },
+  transcribe: { requests: 60, windowSeconds: 3600 },
   auth: { requests: 100, windowSeconds: 3600 },
   api_general: { requests: 150, windowSeconds: 3600 },
 };
@@ -152,8 +152,7 @@ async function checkUpstashLimit(
 
 export function routeToRateLimitGroup(pathname: string): RateLimitGroup | null {
   if (pathname.startsWith("/api/evaluation/chat")) return "chat";
-  // Deepgram / transcribe: no rate limits (session auth still required in middleware)
-  if (pathname === "/api/transcribe") return null;
+  if (pathname === "/api/transcribe") return "transcribe";
   if (pathname === "/api/auth/session") return "auth";
   if (pathname.startsWith("/api/")) return "api_general";
   return null;
