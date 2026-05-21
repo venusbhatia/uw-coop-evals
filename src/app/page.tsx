@@ -233,9 +233,9 @@ function DashboardContent({
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-[var(--border)] px-6 py-5 flex items-center justify-between max-w-5xl mx-auto w-full gap-4">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Employee Evals</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight">Evals.com</h1>
           <p className="text-[13px] text-[var(--muted)] mt-0.5">
-            Performance evaluations
+            Thoughtful co-op and work-term evaluations
           </p>
           {evaluatorEmail && (
             <p className="text-[12px] text-[var(--muted)] mt-1">

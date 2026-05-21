@@ -1,4 +1,4 @@
-export const SESSION_UPDATED_EVENT = "employee-evals-session-updated";
+export const SESSION_UPDATED_EVENT = "evals-com-session-updated";
 
 export function notifySessionUpdated(): void {
   if (typeof window !== "undefined") {

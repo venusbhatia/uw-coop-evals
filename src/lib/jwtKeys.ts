@@ -9,7 +9,7 @@ function warnMissingJwtEnvOnce(): void {
   if (warnedMissingJwtEnv || process.env.NODE_ENV === "production") return;
   warnedMissingJwtEnv = true;
   console.warn(
-    "[employee-evals] JWT_PRIVATE_KEY and JWKS are required for session auth. Run: node scripts/generate-jwt-keys.mjs",
+    "[evals.com] JWT_PRIVATE_KEY and JWKS are required for session auth. Run: node scripts/generate-jwt-keys.mjs",
   );
 }
 

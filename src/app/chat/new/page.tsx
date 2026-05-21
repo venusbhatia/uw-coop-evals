@@ -14,7 +14,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Download } from "lucide-react";
-import { downloadJsonFile } from "@/lib/waterlooFormExport";
+import { downloadJsonFile } from "@/lib/speFormExport";
 import type { Id } from "convex/_generated/dataModel";
 import {
   SIMPLE_EVALUATION_QUESTION_COUNT,
@@ -175,7 +175,7 @@ function SimpleEvaluation() {
     return data;
   };
 
-  const downloadWaterlooJson = async () => {
+  const downloadSpeJson = async () => {
     if (!studentId || !evaluatorName || !student) return;
     setExportError("");
     try {
@@ -183,7 +183,7 @@ function SimpleEvaluation() {
         studentId,
         type: evalType,
       });
-      const res = await fetch(`/api/evaluations/waterloo-json?${params.toString()}`, {
+      const res = await fetch(`/api/evaluations/spe-json?${params.toString()}`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -191,7 +191,7 @@ function SimpleEvaluation() {
         throw new Error((data.error as string) ?? "Export failed.");
       }
       const safeName = student.name.replace(/\s+/g, "-").toLowerCase();
-      downloadJsonFile(data, `${safeName}-${evalType}-waterloo-spe.json`);
+      downloadJsonFile(data, `${safeName}-${evalType}-spe-export.json`);
     } catch (e: unknown) {
       setExportError(e instanceof Error ? e.message : "Export failed.");
     }
@@ -448,7 +448,7 @@ function SimpleEvaluation() {
           <section className="flex-1 flex flex-col items-center justify-center text-center gap-4 py-12">
             <p className="text-[22px] font-semibold">Evaluation saved</p>
             <p className="text-[15px] text-[var(--muted)] max-w-sm">
-              Your Waterloo SPE JSON export was downloaded. It includes every
+              Your SPE JSON export was downloaded. It includes every
               field from the official performance evaluation form.
             </p>
             {exportError && (
@@ -456,7 +456,7 @@ function SimpleEvaluation() {
             )}
             <button
               type="button"
-              onClick={() => void downloadWaterlooJson()}
+              onClick={() => void downloadSpeJson()}
               className="btn-secondary px-5 py-2.5 text-[14px] flex items-center gap-2"
             >
               <Download className="w-4 h-4" />

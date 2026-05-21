@@ -28,7 +28,7 @@ export async function requireAuth(
   }
 
   const email = resolveEvaluatorEmail(identity);
-  if (!email.endsWith("@8090.inc")) {
+  if (!email.includes("@")) {
     throw new Error("Forbidden");
   }
 
@@ -45,7 +45,7 @@ export async function requireAuthMutation(
   }
 
   const email = resolveEvaluatorEmail(identity);
-  if (!email.endsWith("@8090.inc")) {
+  if (!email.includes("@")) {
     throw new Error("Forbidden");
   }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import { buildWaterlooSpeExport } from "@/lib/waterlooFormExport";
+import { buildSpeExport } from "@/lib/speFormExport";
 import {
   convexTokenForSession,
   isSessionPayload,
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const payload = buildWaterlooSpeExport({
+    const payload = buildSpeExport({
       student,
       evaluation,
       sourceType,

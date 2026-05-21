@@ -1,7 +1,7 @@
 /** Demo roster and evaluator emails for seedDemo. */
 
-export const DEMO_EVALUATOR_1 = "sarah@8090.inc";
-export const DEMO_EVALUATOR_2 = "marcus@8090.inc";
+export const DEMO_EVALUATOR_1 = "sarah@gmail.com";
+export const DEMO_EVALUATOR_2 = "marcus@work.com";
 
 export type DemoStudentSeed = {
   name: string;

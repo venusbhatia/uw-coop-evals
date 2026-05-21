@@ -5,8 +5,9 @@ import { convexTokenForExtension, requireExtensionKey } from "@/lib/apiAuth";
 
 const ALLOWED_EXTENSION_ORIGINS = [
   "chrome-extension://",
-  "https://employee-evals.vercel.app",
-  "http://localhost:8090",
+  "https://evals.com",
+  "https://www.evals.com",
+  "http://localhost:3000",
 ];
 
 function corsOrigin(request: NextRequest): string | null {

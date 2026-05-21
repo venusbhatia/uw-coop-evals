@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   DEMO_EVALUATOR_EMAIL,
-  isValid8090Email,
+  isValidSignInEmail,
   setEvaluatorEmail,
 } from "@/lib/evaluatorSession";
 import {
@@ -51,8 +51,8 @@ function OnboardingForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
-    if (!isValid8090Email(trimmed)) {
-      setError("Enter your 8090 work email ending with @8090.inc");
+    if (!isValidSignInEmail(trimmed)) {
+      setError("Enter a valid email address.");
       return;
     }
     setLoading(true);
@@ -88,9 +88,9 @@ function OnboardingForm() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
-        <h1 className="text-[28px] font-semibold tracking-tight">Employee Evals</h1>
+        <h1 className="text-[28px] font-semibold tracking-tight">Evals.com</h1>
         <p className="text-[15px] text-[var(--muted)] mt-2 leading-relaxed">
-          Simple performance evaluations for your team.
+          Thoughtful performance evaluations for co-op and work-term students.
         </p>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-10 space-y-4">
@@ -99,13 +99,13 @@ function OnboardingForm() {
               htmlFor="work-email"
               className="text-[12px] text-[var(--muted)] uppercase tracking-wide"
             >
-              Work email
+              Email
             </label>
             <input
               id="work-email"
               type="email"
               autoComplete="email"
-              placeholder="you@8090.inc"
+              placeholder="you@gmail.com"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -115,7 +115,7 @@ function OnboardingForm() {
               required
             />
             <p className="text-[13px] text-[var(--muted)] mt-2 leading-relaxed">
-              Use your 8090 work email.
+              Sign in with your work or personal email.
             </p>
           </div>
 

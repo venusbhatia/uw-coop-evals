@@ -74,7 +74,7 @@ export const syncRole = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
     const email = resolveEvaluatorEmail(identity);
-    if (!email.endsWith("@8090.inc")) throw new Error("Forbidden");
+    if (!email.includes("@")) throw new Error("Forbidden");
     const role = await ensureUser(ctx, email);
     return { email, role };
   },

@@ -210,7 +210,7 @@ function sdgExport(selected: number[]) {
   }));
 }
 
-export function buildWaterlooSpeExport(params: {
+export function buildSpeExport(params: {
   student: StudentRecord;
   evaluation: EvaluationRecord;
   sourceType: "reconciled" | "draft";
@@ -229,7 +229,7 @@ export function buildWaterlooSpeExport(params: {
 
   return {
     exportedAt: new Date().toISOString(),
-    formReference: "University of Waterloo — Student Performance Evaluation (context form.pdf)",
+    formReference: "Standard Student Performance Evaluation (SPE form)",
     evaluationType: evaluation.type,
     source: {
       type: sourceType,

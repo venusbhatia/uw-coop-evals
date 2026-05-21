@@ -11,7 +11,7 @@ import {
   ArrowLeft, FileText, Download, ShieldAlert, Sparkles, 
   Check, Lock, Edit3, UserCheck, CheckSquare, Square, FileJson
 } from "lucide-react";
-import { downloadJsonFile } from "@/lib/waterlooFormExport";
+import { downloadJsonFile } from "@/lib/speFormExport";
 import { COMPETENCY_LABELS, FUTURE_READY_COMPETENCIES, SDG_LIST } from "@/lib/evaluationConfig";
 import {
   canExportStatus,
@@ -243,14 +243,14 @@ export default function StudentDetailPage() {
         studentId: student._id,
         type: evalType,
       });
-      const res = await fetch(`/api/evaluations/waterloo-json?${params.toString()}`);
+      const res = await fetch(`/api/evaluations/spe-json?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
         alert((data.error as string) ?? "Export failed.");
         return;
       }
       const safeName = student.name.replace(/\s+/g, "-").toLowerCase();
-      downloadJsonFile(data, `${safeName}-${evalType}-waterloo-spe.json`);
+      downloadJsonFile(data, `${safeName}-${evalType}-spe-export.json`);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Export failed.");
     }
@@ -377,7 +377,7 @@ export default function StudentDetailPage() {
               <div className="bg-emerald-950/20 border border-emerald-900/30 p-3 rounded-lg flex items-start gap-2.5 mb-4">
                 <Lock className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                 <div className="text-xs text-emerald-300">
-                  Finalized — ready for WaterlooWorks export.
+                  Finalized — ready for official form export.
                   {reconciled.signOffs.length > 0 && (
                     <div className="font-semibold mt-1 text-slate-200">
                       Signed off: {reconciled.signOffs.join(", ")}

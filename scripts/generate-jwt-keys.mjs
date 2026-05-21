@@ -9,7 +9,7 @@ const { privateKey, publicKey } = await generateKeyPair("RS256", { extractable: 
 const pkcs8 = await exportPKCS8(privateKey);
 const jwk = await exportJWK(publicKey);
 const jwks = JSON.stringify({
-  keys: [{ use: "sig", ...jwk, alg: "RS256", kid: "employee-evals-1" }],
+  keys: [{ use: "sig", ...jwk, alg: "RS256", kid: "evals-com-1" }],
 });
 const oneLineKey = pkcs8.trimEnd().replace(/\n/g, " ");
 

@@ -37,7 +37,7 @@ describe("evaluatorApi auth helpers", () => {
   it("maps convex-token failure to CONVEX_AUTH_FAILED", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ authenticated: true, email: "you@8090.inc" }), {
+        new Response(JSON.stringify({ authenticated: true, email: "you@gmail.com" }), {
           status: 200,
         }),
       )
