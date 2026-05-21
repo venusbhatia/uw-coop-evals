@@ -16,6 +16,7 @@ import {
   canSupervisorEdit,
   deriveStatusFromDrafts,
   statusFieldForType,
+  supervisorCanSaveEvaluation,
 } from "./lib/workflow";
 
 const evalPayloadArgs = {
@@ -54,6 +55,42 @@ async function patchStudentStatus(
 ) {
   const field = statusFieldForType(type);
   await ctx.db.patch(studentId, { [field]: status });
+}
+
+type EvalPayloadArgs = {
+  studentId: Id<"students">;
+  type: string;
+  ratings: EvalPayload["ratings"];
+  strengths: EvalPayload["strengths"];
+  developments: EvalPayload["developments"];
+  sdgs: number[];
+  overallRating: string;
+  overallComments: string;
+  outstandingComments: string;
+  recommendations: string;
+  reviewedWithStudent: boolean;
+  studentComments: string;
+  futureEmployment: EvalPayload["futureEmployment"];
+  sectionProgress?: string[];
+};
+
+function evalFieldsFromArgs(args: EvalPayloadArgs) {
+  return {
+    ratings: args.ratings,
+    strengths: args.strengths,
+    developments: args.developments,
+    sdgs: args.sdgs,
+    overallRating: args.overallRating,
+    overallComments: args.overallComments,
+    outstandingComments: args.outstandingComments,
+    recommendations: args.recommendations,
+    reviewedWithStudent: args.reviewedWithStudent,
+    studentComments: args.studentComments,
+    futureEmployment: args.futureEmployment,
+    ...(args.sectionProgress !== undefined
+      ? { sectionProgress: args.sectionProgress }
+      : {}),
+  };
 }
 
 export const getByStudentAndType = query({
@@ -110,46 +147,27 @@ export const saveSubmissionDraft = mutation({
 
     const statusField = statusFieldForType(args.type);
     const currentStatus = student[statusField];
-    const reconciledCheck = await getReconciled(ctx, args.studentId, args.type);
-    const wf = reconciledCheck?.workflowStatus ?? currentStatus;
-    if (!canSupervisorEdit(currentStatus) && !canSupervisorEdit(wf)) {
+    const existing = await getReconciled(ctx, args.studentId, args.type);
+    if (
+      !supervisorCanSaveEvaluation(currentStatus, existing?.workflowStatus)
+    ) {
       throw new Error("Evaluation is locked while under review.");
     }
 
-    const existing = await getReconciled(ctx, args.studentId, args.type);
-    const payload = {
-      studentId: args.studentId,
-      type: args.type,
-      ratings: args.ratings,
-      strengths: args.strengths,
-      developments: args.developments,
-      sdgs: args.sdgs,
-      overallRating: args.overallRating,
-      overallComments: args.overallComments,
-      outstandingComments: args.outstandingComments,
-      recommendations: args.recommendations,
-      reviewedWithStudent: args.reviewedWithStudent,
-      studentComments: args.studentComments,
-      futureEmployment: args.futureEmployment,
-      sectionProgress: args.sectionProgress,
-    };
+    const fields = evalFieldsFromArgs(args);
 
     if (existing) {
-      await ctx.db.replace(existing._id, {
-        ...payload,
-        signOffs: existing.signOffs,
-        status: existing.status,
-        workflowStatus: existing.workflowStatus === "returned" ? "returned" : "in_progress",
-        submittedAt: existing.submittedAt,
-        submittedBy: existing.submittedBy,
-        hrReview: existing.hrReview,
-        vpReview: existing.vpReview,
-        revisionHistory: existing.revisionHistory,
-        createdAt: existing.createdAt,
+      const nextWorkflow =
+        existing.workflowStatus === "returned" ? "returned" : "in_progress";
+      await ctx.db.patch(existing._id, {
+        ...fields,
+        workflowStatus: nextWorkflow,
       });
     } else {
       await ctx.db.insert("reconciledEvaluations", {
-        ...payload,
+        studentId: args.studentId,
+        type: args.type,
+        ...fields,
         signOffs: [],
         status: "draft",
         workflowStatus: "in_progress",
@@ -324,29 +342,22 @@ export const submitDraft = mutation({
       )
       .first();
 
-    const row = {
-      studentId: args.studentId,
-      evaluatorName,
-      type: args.type,
-      ratings: args.ratings,
-      strengths: args.strengths,
-      developments: args.developments,
-      sdgs: args.sdgs,
-      overallRating: args.overallRating,
-      overallComments: args.overallComments,
-      outstandingComments: args.outstandingComments,
-      recommendations: args.recommendations,
-      reviewedWithStudent: args.reviewedWithStudent,
-      studentComments: args.studentComments,
-      futureEmployment: args.futureEmployment,
-      status: "completed",
-      createdAt: Date.now(),
-    };
+    const fields = evalFieldsFromArgs(args);
 
     if (existing) {
-      await ctx.db.replace(existing._id, row);
+      await ctx.db.patch(existing._id, {
+        ...fields,
+        status: "completed",
+      });
     } else {
-      await ctx.db.insert("evaluations", row);
+      await ctx.db.insert("evaluations", {
+        studentId: args.studentId,
+        evaluatorName,
+        type: args.type,
+        ...fields,
+        status: "completed",
+        createdAt: Date.now(),
+      });
     }
 
     const allDrafts = await ctx.db
@@ -380,41 +391,21 @@ export const submitReconciliation = mutation({
     await requireAuthMutation(ctx);
     const existing = await getReconciled(ctx, args.studentId, args.type);
 
-    const base = {
-      studentId: args.studentId,
-      type: args.type,
-      ratings: args.ratings,
-      strengths: args.strengths,
-      developments: args.developments,
-      sdgs: args.sdgs,
-      overallRating: args.overallRating,
-      overallComments: args.overallComments,
-      outstandingComments: args.outstandingComments,
-      recommendations: args.recommendations,
-      reviewedWithStudent: args.reviewedWithStudent,
-      studentComments: args.studentComments,
-      futureEmployment: args.futureEmployment,
-      sectionProgress: args.sectionProgress,
-    };
+    const fields = evalFieldsFromArgs(args);
 
     if (existing) {
-      await ctx.db.replace(existing._id, {
-        ...base,
-        signOffs: existing.signOffs,
-        status: existing.status,
-        workflowStatus: canSupervisorEdit(existing.workflowStatus)
-          ? "in_progress"
-          : existing.workflowStatus,
-        submittedAt: existing.submittedAt,
-        submittedBy: existing.submittedBy,
-        hrReview: existing.hrReview,
-        vpReview: existing.vpReview,
-        revisionHistory: existing.revisionHistory,
-        createdAt: existing.createdAt,
+      const nextWorkflow = canSupervisorEdit(existing.workflowStatus)
+        ? "in_progress"
+        : existing.workflowStatus;
+      await ctx.db.patch(existing._id, {
+        ...fields,
+        workflowStatus: nextWorkflow,
       });
     } else {
       await ctx.db.insert("reconciledEvaluations", {
-        ...base,
+        studentId: args.studentId,
+        type: args.type,
+        ...fields,
         signOffs: [],
         status: "draft",
         workflowStatus: "in_progress",

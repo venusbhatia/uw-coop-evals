@@ -16,6 +16,7 @@ import {
   WIZARD_DOMAINS,
   emptyRatings,
 } from "@/lib/evaluationConfig";
+import { formatConvexError } from "@/lib/convexError";
 
 type FormState = {
   ratings: Record<string, number | null>;
@@ -160,7 +161,7 @@ export function EvalFormWizard({
       });
       setSuccess("Draft saved.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not save draft.");
+      setError(formatConvexError(e));
     } finally {
       setSaving(false);
     }
@@ -176,7 +177,7 @@ export function EvalFormWizard({
       setSuccess("Submitted to HR for review.");
       onSubmitted?.();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not submit for review.");
+      setError(formatConvexError(e));
     } finally {
       setSubmitting(false);
     }

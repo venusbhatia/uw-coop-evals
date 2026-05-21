@@ -14,9 +14,28 @@ export function statusFieldForType(type: string): "midtermStatus" | "finalStatus
   return type === "midterm" ? "midtermStatus" : "finalStatus";
 }
 
+const SUPERVISOR_EDITABLE_STATUSES = new Set([
+  "not_started",
+  "in_progress",
+  "returned",
+  "ready_reconcile",
+  "draft",
+]);
+
 export function canSupervisorEdit(workflowStatus: string | undefined): boolean {
   if (!workflowStatus || workflowStatus === "draft") return true;
-  return workflowStatus === "in_progress" || workflowStatus === "returned";
+  return SUPERVISOR_EDITABLE_STATUSES.has(workflowStatus);
+}
+
+/** True when a supervisor may save the unified submission (student and/or reconciled row). */
+export function supervisorCanSaveEvaluation(
+  studentTermStatus: string,
+  reconciledWorkflowStatus: string | undefined,
+): boolean {
+  return (
+    canSupervisorEdit(studentTermStatus) ||
+    canSupervisorEdit(reconciledWorkflowStatus)
+  );
 }
 
 export function resolveWorkflowStatus(

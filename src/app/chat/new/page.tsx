@@ -15,6 +15,7 @@ import { api } from "convex/_generated/api";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Download } from "lucide-react";
 import { downloadJsonFile } from "@/lib/speFormExport";
+import { draftPayloadToMutationArgs } from "@/lib/evaluationPayload";
 import type { Id } from "convex/_generated/dataModel";
 import {
   SIMPLE_EVALUATION_QUESTION_COUNT,
@@ -121,6 +122,7 @@ function SimpleEvaluation() {
     studentId ? { studentId: studentId as Id<"students"> } : "skip",
   );
   const submitDraft = useMutation(api.evaluations.submitDraft);
+  const saveSubmissionDraft = useMutation(api.evaluations.saveSubmissionDraft);
 
   const [step, setStep] = useState(0);
   const [questions, setQuestions] = useState<string[]>([]);
@@ -205,21 +207,13 @@ function SimpleEvaluation() {
     setExportError("");
     try {
       await ensureEvaluationAuth();
-      await submitDraft({
-        studentId: studentId as Id<"students">,
-        type: evalType,
-        ratings: payload.ratings as Parameters<typeof submitDraft>[0]["ratings"],
-        strengths: payload.strengths,
-        developments: payload.developments,
-        sdgs: payload.sdgs,
-        overallRating: payload.overallRating,
-        overallComments: payload.overallComments,
-        outstandingComments: payload.outstandingComments,
-        recommendations: payload.recommendations,
-        reviewedWithStudent: payload.reviewedWithStudent,
-        studentComments: payload.studentComments,
-        futureEmployment: payload.futureEmployment,
-      });
+      const mutationArgs = draftPayloadToMutationArgs(
+        studentId as Id<"students">,
+        evalType,
+        payload,
+      );
+      await submitDraft(mutationArgs);
+      await saveSubmissionDraft(mutationArgs);
       setCompleted(true);
       setSubmitting(false);
       setTimeout(
@@ -446,23 +440,29 @@ function SimpleEvaluation() {
           </div>
         ) : completed ? (
           <section className="flex-1 flex flex-col items-center justify-center text-center gap-4 py-12">
-            <p className="text-[22px] font-semibold">Evaluation saved</p>
-            <p className="text-[15px] text-[var(--muted)] max-w-sm">
-              Your SPE JSON export was downloaded. It includes every
-              field from the official performance evaluation form.
+            <p className="text-[22px] font-semibold">Draft ready for review</p>
+            <p className="text-[15px] text-[var(--muted)] max-w-sm leading-relaxed">
+              Your AI answers are saved. Opening the full form with your draft
+              pre-filled — review each step, then save or submit to HR.
             </p>
             {exportError && (
               <p className="text-[14px] text-red-600 dark:text-red-400">{exportError}</p>
             )}
+            <Link
+              href={`/student/${studentId}/form?type=${evalType}`}
+              className="btn-primary px-5 py-2.5 text-[14px]"
+            >
+              Review full form now
+            </Link>
             <button
               type="button"
               onClick={() => void downloadSpeJson()}
               className="btn-secondary px-5 py-2.5 text-[14px] flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
-              Download JSON again
+              Download JSON export
             </button>
-            <Link href={`/student/${studentId}`} className="text-[14px] underline">
+            <Link href={`/student/${studentId}`} className="text-[14px] underline text-[var(--muted)]">
               Back to student page
             </Link>
           </section>

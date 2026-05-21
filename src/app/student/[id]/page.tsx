@@ -12,6 +12,8 @@ import {
   Check, Lock, Edit3, UserCheck, CheckSquare, Square, FileJson
 } from "lucide-react";
 import { downloadJsonFile } from "@/lib/speFormExport";
+import { draftPayloadToMutationArgs, stripToEvalMutationPayload } from "@/lib/evaluationPayload";
+import { formatConvexError } from "@/lib/convexError";
 import { COMPETENCY_LABELS, FUTURE_READY_COMPETENCIES, SDG_LIST } from "@/lib/evaluationConfig";
 import {
   canExportStatus,
@@ -159,19 +161,20 @@ export default function StudentDetailPage() {
   }
 
   const handleSaveConsensus = async () => {
-    if (!reconciledDraft) return;
+    if (!reconciledDraft || !student) return;
     setSaving(true);
     try {
-      await submitReconciliation({
-        studentId: student._id,
-        type: evalType,
-        ...reconciledDraft,
-      });
+      const payload = stripToEvalMutationPayload(
+        reconciledDraft as Record<string, unknown>,
+      );
+      await submitReconciliation(
+        draftPayloadToMutationArgs(student._id, evalType, payload),
+      );
       setBanner({ type: "ok", text: "Consensus evaluation saved." });
     } catch (e: unknown) {
       setBanner({
         type: "err",
-        text: e instanceof Error ? e.message : "Save failed.",
+        text: formatConvexError(e),
       });
     } finally {
       setSaving(false);
@@ -179,15 +182,15 @@ export default function StudentDetailPage() {
   };
 
   const handleSignOff = async () => {
-    if (!reconciledDraft) return;
+    if (!reconciledDraft || !student) return;
     setSigningOff(true);
     try {
-      // First save current values
-      await submitReconciliation({
-        studentId: student._id,
-        type: evalType,
-        ...reconciledDraft,
-      });
+      const payload = stripToEvalMutationPayload(
+        reconciledDraft as Record<string, unknown>,
+      );
+      await submitReconciliation(
+        draftPayloadToMutationArgs(student._id, evalType, payload),
+      );
       // Sign off
       await signOffEvaluation({
         studentId: student._id,
@@ -197,7 +200,7 @@ export default function StudentDetailPage() {
     } catch (e: unknown) {
       setBanner({
         type: "err",
-        text: e instanceof Error ? e.message : "Sign-off failed.",
+        text: formatConvexError(e),
       });
     } finally {
       setSigningOff(false);
