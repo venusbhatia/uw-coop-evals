@@ -6,6 +6,7 @@ export default defineSchema({
     name: v.string(),
     studentId: v.string(),
     jobTitle: v.string(),
+    team: v.optional(v.string()),
     term: v.string(), // "Winter" | "Spring" | "Fall"
     year: v.string(),
     midtermStatus: v.string(), // "not_started" | "drafting" | "ready_reconcile" | "completed"

@@ -7,11 +7,24 @@ export type DemoStudentSeed = {
   name: string;
   studentId: string;
   jobTitle: string;
+  team?: string;
   term: string;
   year: string;
   midtermStatus: string;
   finalStatus: string;
 };
+
+export function teamFromJobTitle(jobTitle: string): string {
+  const lower = jobTitle.toLowerCase();
+  if (lower.includes("design") || lower.includes("ux")) return "Design";
+  if (lower.includes("product") || lower.includes("business analyst")) return "Product";
+  if (lower.includes("marketing") || lower.includes("content") || lower.includes("sales")) {
+    return "Marketing";
+  }
+  if (lower.includes("data") || lower.includes("ml ")) return "Data";
+  if (lower.includes("hr")) return "Operations";
+  return "Engineering";
+}
 
 export const DEMO_STUDENTS: DemoStudentSeed[] = [
   { name: "Jane Doe", studentId: "20912834", jobTitle: "Software Engineering Intern", term: "Spring", year: "2026", midtermStatus: "not_started", finalStatus: "not_started" },

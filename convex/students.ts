@@ -5,15 +5,17 @@ import {
   DEMO_EVALUATOR_1,
   DEMO_EVALUATOR_2,
   DEMO_STUDENTS,
+  teamFromJobTitle,
 } from "./seedData";
 import { requireAuth, requireSeedDemoAuth } from "./lib/requireAuth";
 
-// List all students
+// List all students (newest first)
 export const list = query({
   args: {},
   handler: async (ctx) => {
     await requireAuth(ctx);
-    return await ctx.db.query("students").collect();
+    const students = await ctx.db.query("students").collect();
+    return students.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
 
@@ -50,9 +52,10 @@ export const add = mutation({
   args: {
     name: v.string(),
     studentId: v.string(),
-    jobTitle: v.optional(v.string()),
-    term: v.optional(v.string()),
+    team: v.string(),
+    term: v.string(),
     year: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAuth(ctx);
@@ -61,7 +64,8 @@ export const add = mutation({
       name: args.name,
       studentId: args.studentId,
       jobTitle: args.jobTitle ?? "Co-op Student",
-      term: args.term ?? "Spring",
+      team: args.team,
+      term: args.term,
       year,
       midtermStatus: "not_started",
       finalStatus: "not_started",
@@ -96,6 +100,7 @@ export const seedDemo = mutation({
         name: s.name,
         studentId: s.studentId,
         jobTitle: s.jobTitle,
+        team: s.team ?? teamFromJobTitle(s.jobTitle),
         term: s.term,
         year: s.year,
         midtermStatus: s.midtermStatus,

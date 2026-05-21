@@ -13,6 +13,11 @@ import {
 import { destroyServerSession, fetchServerSessionEmail } from "@/lib/evaluatorApi";
 import { runSeedDemo } from "@/lib/seedDemo";
 import { ConvexAuthGate } from "@/components/ConvexAuthGate";
+import {
+  TEAM_OPTIONS,
+  TERM_OPTIONS,
+  yearOptions,
+} from "@/lib/studentOptions";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -26,7 +31,20 @@ export default function Dashboard() {
   const [seeding, setSeeding] = useState(false);
   const [seedError, setSeedError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", studentId: "" });
+  const defaultYear = String(new Date().getFullYear());
+  const [newStudent, setNewStudent] = useState<{
+    name: string;
+    studentId: string;
+    team: string;
+    term: string;
+    year: string;
+  }>({
+    name: "",
+    studentId: "",
+    team: TEAM_OPTIONS[0],
+    term: TERM_OPTIONS[1],
+    year: defaultYear,
+  });
 
   useEffect(() => {
     void (async () => {
@@ -73,9 +91,18 @@ export default function Dashboard() {
       await addStudent({
         name: newStudent.name.trim(),
         studentId: newStudent.studentId.trim(),
+        team: newStudent.team,
+        term: newStudent.term,
+        year: newStudent.year,
       });
       setShowAddModal(false);
-      setNewStudent({ name: "", studentId: "" });
+      setNewStudent({
+        name: "",
+        studentId: "",
+        team: TEAM_OPTIONS[0],
+        term: TERM_OPTIONS[1],
+        year: defaultYear,
+      });
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Failed to add student");
     }
@@ -140,8 +167,20 @@ function DashboardContent({
   seedError: string;
   showAddModal: boolean;
   setShowAddModal: (v: boolean) => void;
-  newStudent: { name: string; studentId: string };
-  setNewStudent: (v: { name: string; studentId: string }) => void;
+  newStudent: {
+    name: string;
+    studentId: string;
+    team: string;
+    term: string;
+    year: string;
+  };
+  setNewStudent: (v: {
+    name: string;
+    studentId: string;
+    team: string;
+    term: string;
+    year: string;
+  }) => void;
   handleAddStudent: (e: React.FormEvent) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addStudent: any;
@@ -154,12 +193,15 @@ function DashboardContent({
 }) {
   const students = useQuery(api.students.list);
 
+  const years = yearOptions();
+
   const filteredStudents =
     students?.filter((student) => {
       const matchesSearch =
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.studentId.includes(searchTerm) ||
-        student.jobTitle.toLowerCase().includes(searchTerm.toLowerCase());
+        student.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (student.team ?? "").toLowerCase().includes(searchTerm.toLowerCase());
       const matchesTerm = termFilter === "all" || student.term === termFilter;
       const matchesStatus =
         statusFilter === "all" ||
@@ -262,6 +304,7 @@ function DashboardContent({
             <thead>
               <tr className="border-b border-[var(--border)] text-[12px] text-[var(--muted)] uppercase tracking-wide">
                 <th className="py-3 px-4 font-medium">Student</th>
+                <th className="py-3 px-4 font-medium">Team</th>
                 <th className="py-3 px-4 font-medium">Term</th>
                 <th className="py-3 px-4 font-medium">Midterm</th>
                 <th className="py-3 px-4 font-medium">Final</th>
@@ -271,13 +314,13 @@ function DashboardContent({
             <tbody>
               {!students ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[var(--muted)]">
+                  <td colSpan={6} className="py-12 text-center text-[var(--muted)]">
                     Loading…
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[var(--muted)]">
+                  <td colSpan={6} className="py-12 text-center text-[var(--muted)]">
                     No students found.
                   </td>
                 </tr>
@@ -292,6 +335,9 @@ function DashboardContent({
                       <div className="text-[12px] text-[var(--muted)] mt-0.5">
                         {s.studentId} · {s.jobTitle}
                       </div>
+                    </td>
+                    <td className="py-4 px-4 text-[var(--muted)]">
+                      {s.team ?? "—"}
                     </td>
                     <td className="py-4 px-4 text-[var(--muted)]">
                       {s.term} {s.year}
@@ -350,6 +396,65 @@ function DashboardContent({
                   className="input-field w-full mt-1.5 px-3 py-2 text-[14px]"
                   required
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[12px] text-[var(--muted)] uppercase tracking-wide">
+                    Team
+                  </label>
+                  <select
+                    value={newStudent.team}
+                    onChange={(e) =>
+                      setNewStudent({ ...newStudent, team: e.target.value })
+                    }
+                    className="input-field w-full mt-1.5 px-3 py-2 text-[14px]"
+                    required
+                  >
+                    {TEAM_OPTIONS.map((team) => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[12px] text-[var(--muted)] uppercase tracking-wide">
+                    Term
+                  </label>
+                  <select
+                    value={newStudent.term}
+                    onChange={(e) =>
+                      setNewStudent({ ...newStudent, term: e.target.value })
+                    }
+                    className="input-field w-full mt-1.5 px-3 py-2 text-[14px]"
+                    required
+                  >
+                    {TERM_OPTIONS.map((term) => (
+                      <option key={term} value={term}>
+                        {term}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] text-[var(--muted)] uppercase tracking-wide">
+                  Year
+                </label>
+                <select
+                  value={newStudent.year}
+                  onChange={(e) =>
+                    setNewStudent({ ...newStudent, year: e.target.value })
+                  }
+                  className="input-field w-full mt-1.5 px-3 py-2 text-[14px]"
+                  required
+                >
+                  {years.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <button
